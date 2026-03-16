@@ -46,8 +46,22 @@ Bucket `attachments` anlegen; Attachment-URL z.B.: `http://localhost:9000/attach
 
 - **default** – In-Memory-Queue, Entwicklung
 - **dev** (`--spring.profiles.active=dev`) – Lockere Limits, DEBUG-Logs für `de.krata`
-- **prod** (`--spring.profiles.active=prod`) – Redis-Queue, höherer Durchsatz, Retention 30 Tage, Umgebungsvariablen (REDIS_HOST, LUCENE_RETENTION_DAYS, etc.)
+- **prod** (`--spring.profiles.active=prod`) – Redis-Queue, für **Server mit ~128 GB RAM** abgestimmt (großer Lucene-Cache, viele Worker), Umgebungsvariablen (REDIS_HOST, LUCENE_RETENTION_DAYS, etc.)
 - **test** – Kleine Queue, MinIO/Lucene-Health aus
+
+### Produktion (128 GB RAM)
+
+Das Prod-Profil setzt u.a.:
+- **Lucene:** bis zu 20 GB RAM-Cache für Index-Segmente (`max-cached-mb: 20480`), größere Segmente im Cache (`max-merge-size-mb: 512`)
+- **Indizierung:** 24 Worker-Threads, Queue 200.000, höhere Rate-Limits
+
+**JVM-Start** (Beispiel, Heap nutzt einen Teil des RAMs, Rest für OS/Lucene/Redis):
+
+```bash
+java -Xms32g -Xmx48g -jar target/krata-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
+```
+
+Mit 48 GB Heap bleibt genug RAM für Lucene-Dateicache (~20 GB), OS und ggf. Redis auf demselben Host.
 
 ## Build & Start
 

@@ -1,4 +1,5 @@
-# Produktions-Profil: Redis-Queue, höherer Durchsatz, Retention, weniger Logs
+# Produktions-Profil: für Server mit ~128 GB RAM
+# Redis-Queue, großer Lucene-RAM-Cache, viele Worker-Threads
 spring:
   data:
     redis:
@@ -14,8 +15,8 @@ logging:
 lucene:
   index-path: ${LUCENE_INDEX_PATH:/data/lucene-index}
   cache:
-    max-merge-size-mb: 10
-    max-cached-mb: 120
+    max-merge-size-mb: 512
+    max-cached-mb: 20480
   commit-interval-sec: 3
   retention-days: ${LUCENE_RETENTION_DAYS:30}
   retention-cron: "0 0 2 * * ?"
@@ -24,25 +25,25 @@ lucene:
 krata:
   indexing:
     use-redis: true
-    queue-size: 100000
-    threads: 12
-    status-max-entries: 100000
+    queue-size: 200000
+    threads: 24
+    status-max-entries: 200000
     poll-timeout-sec: 5
     redis:
       status-ttl-hours: 48
   api-key: ${KRATA_API_KEY:}
   rate-limit:
-    index-per-minute: 2000
-    search-per-minute: 500
+    index-per-minute: 5000
+    search-per-minute: 1000
 
 resilience4j:
   ratelimiter:
     instances:
       index:
-        limitForPeriod: 2000
+        limitForPeriod: 5000
         limitRefreshPeriod: 60s
       search:
-        limitForPeriod: 500
+        limitForPeriod: 1000
         limitRefreshPeriod: 60s
 
 management:
