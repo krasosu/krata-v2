@@ -39,6 +39,7 @@ class AttachmentControllerTest {
 
     @Test
     void searchReturnsPaginatedResult() throws Exception {
+        /* ARRANGE */
         var response = PaginatedSearchResponse.builder()
                 .total(1)
                 .from(0)
@@ -46,40 +47,47 @@ class AttachmentControllerTest {
                 .hits(List.of(SearchResultHit.builder().attachmentUuid("u1").build()))
                 .build();
         when(luceneIndexService.search(eq("content:test"), eq(0), eq(20), eq(false))).thenReturn(response);
-
-        mvc.perform(post("/api/search")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"query\":\"content:test\",\"from\":0,\"size\":20}"))
-                .andExpect(status().isOk())
+        /* ACT */
+        var result = mvc.perform(post("/api/search")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"query\":\"content:test\",\"from\":0,\"size\":20}"));
+        /* ASSERT */
+        result.andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(1))
                 .andExpect(jsonPath("$.hits[0].attachmentUuid").value("u1"));
     }
 
     @Test
     void deleteFromIndexReturns204() throws Exception {
-        mvc.perform(delete("/api/attachments/uuid-123"))
-                .andExpect(status().isNoContent());
+        /* ACT */
+        var result = mvc.perform(delete("/api/attachments/uuid-123"));
+        /* ASSERT */
+        result.andExpect(status().isNoContent());
     }
 
     @Test
     void indexSyncReturns200() throws Exception {
+        /* ARRANGE */
         when(attachmentIndexService.indexFromUrl(anyString(), anyString()))
                 .thenReturn(IndexAttachmentResponse.builder().indexed(true).build());
-
-        mvc.perform(post("/api/attachments/index")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"attachmentUrl\":\"http://minio/attachments/x/file.pdf\",\"attachmentUuid\":\"u1\"}"))
-                .andExpect(status().isOk())
+        /* ACT */
+        var result = mvc.perform(post("/api/attachments/index")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"attachmentUrl\":\"http://minio/attachments/x/file.pdf\",\"attachmentUuid\":\"u1\"}"));
+        /* ASSERT */
+        result.andExpect(status().isOk())
                 .andExpect(jsonPath("$.indexed").value(true));
     }
 
     @Test
     void indexAsyncReturns202() throws Exception {
+        /* ARRANGE */
         when(asyncIndexingService.submit(anyString(), anyString())).thenReturn(true);
-
-        mvc.perform(post("/api/attachments/index?async=true")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"attachmentUrl\":\"http://minio/attachments/x/file.pdf\",\"attachmentUuid\":\"u1\"}"))
-                .andExpect(status().isAccepted());
+        /* ACT */
+        var result = mvc.perform(post("/api/attachments/index?async=true")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"attachmentUrl\":\"http://minio/attachments/x/file.pdf\",\"attachmentUuid\":\"u1\"}"));
+        /* ASSERT */
+        result.andExpect(status().isAccepted());
     }
 }

@@ -130,7 +130,10 @@ Alle Fehler liefern ein einheitliches JSON (`timestamp`, `status`, `error`, `mes
 mvn verify
 ```
 
-CI (GitHub Actions): `.github/workflows/ci.yml` – Build, Tests, Docker-Build.
+- **Unit-/Controller-Tests** laufen ohne weitere Voraussetzungen.
+- **IntegrationTest** (MinIO + Indizierung + Suche) nutzt Testcontainers und **benötigt Docker**. Ohne Docker wird der Test übersprungen. In CI (GitHub Actions mit Docker) läuft er automatisch.
+
+CI (GitHub Actions): `.github/workflows/ci.yml` – Build, Tests (inkl. Integrationstest bei Docker), Docker-Build.
 
 ## Technologie-Stack
 

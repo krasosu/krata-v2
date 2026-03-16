@@ -16,33 +16,53 @@ class IndexableContentTypeServiceTest {
 
     @Test
     void audioNotIndexable() {
-        assertThat(service.isIndexable("audio/mpeg")).isFalse();
-        assertThat(service.isIndexable("audio/wav")).isFalse();
+        /* ACT */
+        boolean mpeg = service.isIndexable("audio/mpeg");
+        boolean wav = service.isIndexable("audio/wav");
+        /* ASSERT */
+        assertThat(mpeg).isFalse();
+        assertThat(wav).isFalse();
     }
 
     @Test
     void videoNotIndexable() {
-        assertThat(service.isIndexable("video/mp4")).isFalse();
+        /* ACT */
+        boolean result = service.isIndexable("video/mp4");
+        /* ASSERT */
+        assertThat(result).isFalse();
     }
 
     @Test
     void imageNotIndexable() {
-        assertThat(service.isIndexable("image/png")).isFalse();
+        /* ACT */
+        boolean result = service.isIndexable("image/png");
+        /* ASSERT */
+        assertThat(result).isFalse();
     }
 
     @Test
     void pdfIndexable() {
-        assertThat(service.isIndexable("application/pdf")).isTrue();
+        /* ACT */
+        boolean result = service.isIndexable("application/pdf");
+        /* ASSERT */
+        assertThat(result).isTrue();
     }
 
     @Test
     void textIndexable() {
-        assertThat(service.isIndexable("text/plain")).isTrue();
+        /* ACT */
+        boolean result = service.isIndexable("text/plain");
+        /* ASSERT */
+        assertThat(result).isTrue();
     }
 
     @Test
     void nullOrBlankNotIndexable() {
-        assertThat(service.isIndexable(null)).isFalse();
-        assertThat(service.isIndexable("")).isFalse();
+        /* ACT */
+        boolean nullResult = service.isIndexable(null);
+        boolean blankResult = service.isIndexable("");
+        /* ASSERT */
+        assertThat(nullResult).isFalse();
+        assertThat(blankResult).isFalse();
     }
 }
