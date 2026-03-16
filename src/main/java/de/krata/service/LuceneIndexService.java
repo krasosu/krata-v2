@@ -135,6 +135,23 @@ public class LuceneIndexService {
     }
 
     /**
+     * Entfernt alle Dokumente mit den angegebenen attachment_uuids aus dem Index.
+     */
+    public void deleteByAttachmentUuids(java.util.List<String> attachmentUuids) throws IOException {
+        if (attachmentUuids == null || attachmentUuids.isEmpty()) return;
+        Term[] terms = attachmentUuids.stream()
+                .map(uuid -> new Term(FIELD_ATTACHMENT_UUID, uuid))
+                .toArray(Term[]::new);
+        writerLock.lock();
+        try {
+            indexWriter.deleteDocuments(terms);
+        } finally {
+            writerLock.unlock();
+        }
+        log.info("Bulk-Delete: {} Dokumente aus Index entfernt", attachmentUuids.size());
+    }
+
+    /**
      * Löscht alle Dokumente, deren indexed_at vor dem angegebenen Zeitpunkt liegt (Retention).
      */
     public int deleteOlderThan(long cutoffEpochMs) throws IOException {

@@ -107,6 +107,17 @@ public class AttachmentController {
         return ResponseEntity.noContent().build();
     }
 
+    @Operation(summary = "Mehrere Dokumente aus Index entfernen (Bulk-Delete)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Alle angegebenen Dokumente gelöscht"),
+            @ApiResponse(responseCode = "400", description = "Validierungsfehler (z.B. leere Liste oder > 1000 UUIDs)")
+    })
+    @DeleteMapping("/attachments")
+    public ResponseEntity<Void> bulkDeleteFromIndex(@Valid @RequestBody BulkDeleteRequest request) throws Exception {
+        luceneIndexService.deleteByAttachmentUuids(request.getAttachmentUuids());
+        return ResponseEntity.noContent().build();
+    }
+
     @Operation(summary = "Volltextsuche (paginierbar, optional mit Snippets)")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Treffer mit total, from, size, hits",

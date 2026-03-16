@@ -1,0 +1,31 @@
+# Entwicklungs-Profil: lockere Limits, lokale Dienste, mehr Logs
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+logging:
+  level:
+    root: INFO
+    de.krata: DEBUG
+    org.springframework.data.redis: DEBUG
+
+krata:
+  indexing:
+    use-redis: false
+    queue-size: 5000
+    threads: 4
+  rate-limit:
+    index-per-minute: 5000
+    search-per-minute: 1000
+
+resilience4j:
+  ratelimiter:
+    instances:
+      index:
+        limitForPeriod: 5000
+        limitRefreshPeriod: 60s
+      search:
+        limitForPeriod: 1000
+        limitRefreshPeriod: 60s

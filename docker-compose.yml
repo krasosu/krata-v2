@@ -12,6 +12,19 @@ services:
     volumes:
       - minio-data:/data
 
+  redis:
+    image: redis:7-alpine
+    container_name: krata-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   krata:
     build: .
     container_name: krata-app
@@ -21,8 +34,12 @@ services:
       MINIO_URL: http://minio:9000
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
+      SPRING_PROFILES_ACTIVE: prod
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     depends_on:
       - minio
+      - redis
     restart: on-failure
     volumes:
       - lucene-index:/app/data
@@ -30,3 +47,4 @@ services:
 volumes:
   minio-data:
   lucene-index:
+  redis-data:

@@ -23,13 +23,23 @@ lucene:
 # Async-Indizierung + Sicherheit
 krata:
   indexing:
+    use-redis: false
     queue-size: 100000
     threads: 8
     status-max-entries: 50000
+    poll-timeout-sec: 5
+    redis:
+      status-ttl-hours: 24
   api-key: ${KRATA_API_KEY:}
   rate-limit:
     index-per-minute: 1000
     search-per-minute: 300
+
+# Redis (nur bei krata.indexing.use-redis: true erforderlich)
+# spring.data.redis:
+#   host: localhost
+#   port: 6379
+#   password: ${REDIS_PASSWORD:}
 
 # Resilience4j Rate Limiter
 resilience4j:

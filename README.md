@@ -35,10 +35,19 @@ Bucket `attachments` anlegen; Attachment-URL z.B.: `http://localhost:9000/attach
 - **lucene.commit-interval-sec** – Commit-Intervall (Sekunden) für Batches
 - **lucene.retention-days** – Retention in Tagen (0 = aus)
 - **lucene.store-content-for-highlight** – true aktiviert Snippet-Highlighting (mehr Speicher)
+- **krata.indexing.use-redis** – `true` = Queue in Redis (überlebt Neustarts), `false` = In-Memory
 - **krata.indexing.queue-size** – Größe der Async-Queue (z.B. 100000)
 - **krata.indexing.threads** – Worker-Threads für Indizierung (z.B. 8)
+- **spring.data.redis.*** – Host/Port/Password, wenn use-redis=true
 - **krata.api-key** – Optional: X-API-Key erzwingen (leer = aus)
 - **resilience4j.ratelimiter.instances** – Rate Limits (index, search)
+
+### Profile
+
+- **default** – In-Memory-Queue, Entwicklung
+- **dev** (`--spring.profiles.active=dev`) – Lockere Limits, DEBUG-Logs für `de.krata`
+- **prod** (`--spring.profiles.active=prod`) – Redis-Queue, höherer Durchsatz, Retention 30 Tage, Umgebungsvariablen (REDIS_HOST, LUCENE_RETENTION_DAYS, etc.)
+- **test** – Kleine Queue, MinIO/Lucene-Health aus
 
 ## Build & Start
 
@@ -55,8 +64,11 @@ Oder: `mvn spring-boot:run`. Die Anwendung läuft auf Port 8080.
 docker compose up -d
 ```
 
+Enthält **MinIO**, **Redis** (für persistente Indizierungs-Queue im Prod-Profil) und **Krata** (Profil `prod`, nutzt Redis).
+
 - **Krata:** http://localhost:8080 (API, Swagger: /swagger-ui.html)
 - **MinIO Console:** http://localhost:9001
+- **Redis:** Port 6379 (intern)
 
 ## Swagger UI
 
@@ -69,7 +81,8 @@ docker compose up -d
 | POST | /api/attachments/index | Einzel-Indizierung (sync). `?async=true` → 202, Queue |
 | POST | /api/attachments/index/batch | Batch-Indizierung (async), 202 Accepted |
 | GET | /api/attachments/index/status/{uuid} | Status eines Jobs (PENDING/INDEXED/SKIPPED/FAILED) |
-| DELETE | /api/attachments/{uuid} | Dokument aus Index entfernen |
+| DELETE | /api/attachments/{uuid} | Einzelnes Dokument aus Index entfernen |
+| DELETE | /api/attachments | **Bulk-Delete:** mehrere UUIDs im Body (max. 1000) |
 | POST | /api/search | Volltextsuche, paginiert (query, from, size, withHighlight) |
 
 ### Suche (Beispiel)

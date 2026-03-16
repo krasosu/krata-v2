@@ -1,0 +1,55 @@
+# Produktions-Profil: Redis-Queue, höherer Durchsatz, Retention, weniger Logs
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+logging:
+  level:
+    root: WARN
+    de.krata: INFO
+
+lucene:
+  index-path: ${LUCENE_INDEX_PATH:/data/lucene-index}
+  cache:
+    max-merge-size-mb: 10
+    max-cached-mb: 120
+  commit-interval-sec: 3
+  retention-days: ${LUCENE_RETENTION_DAYS:30}
+  retention-cron: "0 0 2 * * ?"
+  store-content-for-highlight: false
+
+krata:
+  indexing:
+    use-redis: true
+    queue-size: 100000
+    threads: 12
+    status-max-entries: 100000
+    poll-timeout-sec: 5
+    redis:
+      status-ttl-hours: 48
+  api-key: ${KRATA_API_KEY:}
+  rate-limit:
+    index-per-minute: 2000
+    search-per-minute: 500
+
+resilience4j:
+  ratelimiter:
+    instances:
+      index:
+        limitForPeriod: 2000
+        limitRefreshPeriod: 60s
+      search:
+        limitForPeriod: 500
+        limitRefreshPeriod: 60s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
