@@ -1,0 +1,28 @@
+spring:
+  main:
+    allow-bean-definition-overriding: true
+
+minio:
+  url: http://localhost:9999
+
+lucene:
+  index-path: ./target/test-lucene-index
+  retention-days: 0
+  commit-interval-sec: 1
+
+krata:
+  indexing:
+    queue-size: 100
+    threads: 2
+    status-max-entries: 100
+
+management:
+  health:
+    minio:
+      enabled: false
+    lucene:
+      enabled: false
+  endpoints:
+    web:
+      exposure:
+        include: health

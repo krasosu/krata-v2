@@ -1,0 +1,63 @@
+# Build
+target/
+build/
+out/
+*.jar
+*.war
+*.ear
+*.class
+
+# Maven
+pom.xml.tag
+pom.releaseBackup
+.mvn/timing.properties
+
+# Gradle
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+.vscode/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Logs & temp
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+
+# Environment & secrets
+.env
+.env.local
+*.pem
+*.key
+
+# Application data (lokal)
+data/
+*.db
+*.sqlite
+
+# Test & coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# Spring Boot
+spring-boot-devtools.properties
+
+# Cursor
+.cursor/

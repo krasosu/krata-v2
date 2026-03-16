@@ -1,0 +1,58 @@
+spring:
+  application:
+    name: krata
+
+# MinIO (S3-kompatibler Storage)
+minio:
+  url: http://localhost:9000
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket: attachments
+
+# Lucene: Index persistent, RAM-Cache, Retention, Commit-Intervall
+lucene:
+  index-path: ./data/lucene-index
+  cache:
+    max-merge-size-mb: 5.0
+    max-cached-mb: 60.0
+  commit-interval-sec: 3
+  retention-days: 30
+  retention-cron: "0 0 2 * * ?"   # täglich 2:00
+  store-content-for-highlight: false
+
+# Async-Indizierung + Sicherheit
+krata:
+  indexing:
+    queue-size: 100000
+    threads: 8
+    status-max-entries: 50000
+  api-key: ${KRATA_API_KEY:}
+  rate-limit:
+    index-per-minute: 1000
+    search-per-minute: 300
+
+# Resilience4j Rate Limiter
+resilience4j:
+  ratelimiter:
+    instances:
+      index:
+        limitForPeriod: 1000
+        limitRefreshPeriod: 60s
+      search:
+        limitForPeriod: 300
+        limitRefreshPeriod: 60s
+
+# Actuator: Health + Metriken
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+  health:
+    lucene:
+      enabled: true
+    minio:
+      enabled: true
