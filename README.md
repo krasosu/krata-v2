@@ -4,7 +4,7 @@ Spring-Boot-Anwendung (JDK 21, Lombok) zur Volltext-Indizierung von Attachments 
 
 ## Ablauf
 
-1. **Indizierung:** Über REST wird eine Attachment-URL (MinIO) und eine `attachment_uuid` übergeben. Die Anwendung lädt die Datei aus MinIO, prüft den Content-Type und indiziert **nur sinnvolle Typen** (Dokumente, Text). **Audio, Video und Bilder** werden nicht indiziert. Indizierung kann **synchron**, **asynchron** (Queue) oder als **Batch** erfolgen.
+1. **Indizierung:** Über REST wird eine Attachment-URL (MinIO) und eine `attachment_uuid` übergeben. Die Anwendung lädt die Datei aus MinIO, prüft den Content-Type und indiziert **nur sinnvolle Typen** (Dokumente, Text). **Audio, Video und Bilder** werden nicht indiziert. Indizierung kann **synchron**, **asynchron** (In-Memory-Queue) oder als **Batch** erfolgen.
 2. **Suche:** Über REST wird eine Lucene-Query übergeben; Antwort ist **paginiert** (from, size, total) und kann **Snippets** (Highlighting) enthalten.
 3. **Retention:** Dokumente älter als konfigurierte Tage (z.B. 30) werden automatisch aus dem Index entfernt.
 
@@ -35,10 +35,8 @@ Bucket `attachments` anlegen; Attachment-URL z.B.: `http://localhost:9000/attach
 - **lucene.commit-interval-sec** – Commit-Intervall (Sekunden) für Batches
 - **lucene.retention-days** – Retention in Tagen (0 = aus)
 - **lucene.store-content-for-highlight** – true aktiviert Snippet-Highlighting (mehr Speicher)
-- **krata.indexing.use-redis** – `true` = Queue in Redis (überlebt Neustarts), `false` = In-Memory
-- **krata.indexing.queue-size** – Größe der Async-Queue (z.B. 100000)
+- **krata.indexing.queue-size** – Größe der Async-Queue (In-Memory)
 - **krata.indexing.threads** – Worker-Threads für Indizierung (z.B. 8)
-- **spring.data.redis.*** – Host/Port/Password, wenn use-redis=true
 - **krata.api-key** – Optional: X-API-Key erzwingen (leer = aus)
 - **resilience4j.ratelimiter.instances** – Rate Limits (index, search)
 
@@ -46,7 +44,7 @@ Bucket `attachments` anlegen; Attachment-URL z.B.: `http://localhost:9000/attach
 
 - **default** – In-Memory-Queue, Entwicklung
 - **dev** (`--spring.profiles.active=dev`) – Lockere Limits, DEBUG-Logs für `de.krata`
-- **prod** (`--spring.profiles.active=prod`) – Redis-Queue, für **Server mit ~128 GB RAM** abgestimmt (großer Lucene-Cache, viele Worker), Umgebungsvariablen (REDIS_HOST, LUCENE_RETENTION_DAYS, etc.)
+- **prod** (`--spring.profiles.active=prod`) – Für **Server mit ~128 GB RAM** abgestimmt (großer Lucene-Cache, viele Worker), Umgebungsvariablen (LUCENE_RETENTION_DAYS, etc.)
 - **test** – Kleine Queue, MinIO/Lucene-Health aus
 
 ### Produktion (128 GB RAM)
@@ -55,13 +53,11 @@ Das Prod-Profil setzt u.a.:
 - **Lucene:** bis zu 20 GB RAM-Cache für Index-Segmente (`max-cached-mb: 20480`), größere Segmente im Cache (`max-merge-size-mb: 512`)
 - **Indizierung:** 24 Worker-Threads, Queue 200.000, höhere Rate-Limits
 
-**JVM-Start** (Beispiel, Heap nutzt einen Teil des RAMs, Rest für OS/Lucene/Redis):
+**JVM-Start** (Beispiel, Heap nutzt einen Teil des RAMs, Rest für OS und Lucene-Dateicache):
 
 ```bash
 java -Xms32g -Xmx48g -jar target/krata-0.0.1-SNAPSHOT.jar --spring.profiles.active=prod
 ```
-
-Mit 48 GB Heap bleibt genug RAM für Lucene-Dateicache (~20 GB), OS und ggf. Redis auf demselben Host.
 
 ## Build & Start
 
@@ -78,11 +74,10 @@ Oder: `mvn spring-boot:run`. Die Anwendung läuft auf Port 8080.
 docker compose up -d
 ```
 
-Enthält **MinIO**, **Redis** (für persistente Indizierungs-Queue im Prod-Profil) und **Krata** (Profil `prod`, nutzt Redis).
+Enthält **MinIO** und **Krata** (Profil `prod`).
 
 - **Krata:** http://localhost:8080 (API, Swagger: /swagger-ui.html)
 - **MinIO Console:** http://localhost:9001
-- **Redis:** Port 6379 (intern)
 
 ## Swagger UI
 
@@ -92,12 +87,12 @@ Enthält **MinIO**, **Redis** (für persistente Indizierungs-Queue im Prod-Profi
 
 | Methode | Endpoint | Beschreibung |
 |--------|----------|--------------|
-| POST | /api/attachments/index | Einzel-Indizierung (sync). `?async=true` → 202, Queue |
+| POST | /api/attachments/index | Einzel-Indizierung (sync). Optional `documentCreatedAt` (Anwender-Erstellung). `?async=true` → 202, Queue |
 | POST | /api/attachments/index/batch | Batch-Indizierung (async), 202 Accepted |
 | GET | /api/attachments/index/status/{uuid} | Status eines Jobs (PENDING/INDEXED/SKIPPED/FAILED) |
 | DELETE | /api/attachments/{uuid} | Einzelnes Dokument aus Index entfernen |
 | DELETE | /api/attachments | **Bulk-Delete:** mehrere UUIDs im Body (max. 1000) |
-| POST | /api/search | Volltextsuche, paginiert (query, from, size, withHighlight) |
+| POST | /api/search | Volltextsuche, paginiert (optional `createdFrom`/`createdTo` = **Anwender-Erstellungszeit**) |
 
 ### Suche (Beispiel)
 
@@ -108,9 +103,17 @@ Enthält **MinIO**, **Redis** (für persistente Indizierungs-Queue im Prod-Profi
   "query": "content:lucene",
   "from": 0,
   "size": 20,
-  "withHighlight": false
+  "withHighlight": false,
+  "createdFrom": "2026-03-01T00:00:00Z",
+  "createdTo": "2026-04-01T23:59:59Z"
 }
 ```
+
+`createdFrom` und `createdTo` beziehen sich auf die **vom Anwender gesetzte Erstellungszeit** (Feld `documentCreatedAt` bei der Indizierung), nicht auf den technischen Indizierungszeitpunkt. Optional (ISO-8601, inklusive Grenzen). Fehlen beide, gibt es keine Zeitfilterung.
+
+Beim Indizieren kann optional mitgegeben werden:
+
+`"documentCreatedAt": "2025-06-15T14:30:00Z"` — fehlt es, wird der Zeitpunkt der Indizierung als Erstellungszeit gespeichert.
 
 Antwort: `{ "total": 42, "from": 0, "size": 20, "hits": [ { "attachmentUuid": "...", "snippet": null } ] }`
 

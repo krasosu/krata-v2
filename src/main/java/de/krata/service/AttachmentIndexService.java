@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 
@@ -30,7 +31,10 @@ public class AttachmentIndexService {
      *
      * @return Response mit indexed=true/false und ggf. skippedReason
      */
-    public IndexAttachmentResponse indexFromUrl(String attachmentUrl, String attachmentUuid) throws IOException, MinioException, InvalidKeyException, NoSuchAlgorithmException {
+    /**
+     * @param documentCreatedAt optional; Anwender-Erstellungszeit, sonst wird der Indizierungszeitpunkt verwendet
+     */
+    public IndexAttachmentResponse indexFromUrl(String attachmentUrl, String attachmentUuid, Instant documentCreatedAt) throws IOException, MinioException, InvalidKeyException, NoSuchAlgorithmException {
         log.info("Prüfe Attachment für Indizierung: uuid={}, url={}", attachmentUuid, attachmentUrl);
 
         byte[] data = attachmentDownloadService.downloadAsBytes(attachmentUrl);
@@ -50,7 +54,7 @@ public class AttachmentIndexService {
             log.warn("Kein Text aus Attachment extrahiert: uuid={}", attachmentUuid);
         }
 
-        luceneIndexService.indexDocument(attachmentUuid, content);
+        luceneIndexService.indexDocument(attachmentUuid, content, documentCreatedAt);
         log.info("Attachment indiziert: uuid={}", attachmentUuid);
         return IndexAttachmentResponse.builder().indexed(true).build();
     }

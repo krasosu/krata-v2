@@ -1,5 +1,7 @@
 package de.krata.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -7,6 +9,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.time.Instant;
 
 @Data
 @Builder
@@ -28,4 +32,24 @@ public class SearchRequest {
 
     @Builder.Default
     private boolean withHighlight = false;
+
+    /**
+     * Untere Grenze für den Anwender-Erstellungszeitpunkt (document_created_at), inklusiv.
+     */
+    @Schema(description = "Nur Dokumente mit Anwender-Erstellungszeit >= diesem Zeitpunkt (ISO-8601), optional")
+    private Instant createdFrom;
+
+    /**
+     * Obere Grenze für den Anwender-Erstellungszeitpunkt (document_created_at), inklusiv.
+     */
+    @Schema(description = "Nur Dokumente mit Anwender-Erstellungszeit <= diesem Zeitpunkt (ISO-8601), optional")
+    private Instant createdTo;
+
+    @AssertTrue(message = "createdFrom muss vor oder gleich createdTo sein")
+    public boolean isValidCreatedWindow() {
+        if (createdFrom == null || createdTo == null) {
+            return true;
+        }
+        return !createdFrom.isAfter(createdTo);
+    }
 }

@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import jakarta.annotation.PreDestroy;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
@@ -36,6 +37,8 @@ public class LuceneIndexService {
     public static final String FIELD_ATTACHMENT_UUID = "attachment_uuid";
     public static final String FIELD_CONTENT = "content";
     public static final String FIELD_INDEXED_AT = "indexed_at";
+    /** Anwender-Erstellungszeitpunkt (kann von der Indizierungszeit abweichen). */
+    public static final String FIELD_DOCUMENT_CREATED_AT = "document_created_at";
 
     private final LuceneConfig luceneConfig;
     private final StandardAnalyzer analyzer = new StandardAnalyzer();
@@ -99,14 +102,20 @@ public class LuceneIndexService {
     /**
      * Fügt ein Dokument zum Index hinzu (Commit erfolgt im Scheduled-Job für Durchsatz).
      */
-    public void indexDocument(String attachmentUuid, String content) throws IOException {
+    /**
+     * @param documentCreatedAt Anwender-Erstellungszeit; {@code null} → es wird der Indizierungszeitpunkt verwendet
+     */
+    public void indexDocument(String attachmentUuid, String content, Instant documentCreatedAt) throws IOException {
         long now = System.currentTimeMillis();
+        long createdEpoch = documentCreatedAt != null ? documentCreatedAt.toEpochMilli() : now;
         Document doc = new Document();
         doc.add(new StringField(FIELD_ATTACHMENT_UUID, attachmentUuid, Field.Store.YES));
         String text = content != null ? content : "";
         doc.add(new TextField(FIELD_CONTENT, text, Field.Store.NO));
         doc.add(new LongPoint(FIELD_INDEXED_AT, now));
         doc.add(new StoredField(FIELD_INDEXED_AT, now));
+        doc.add(new LongPoint(FIELD_DOCUMENT_CREATED_AT, createdEpoch));
+        doc.add(new StoredField(FIELD_DOCUMENT_CREATED_AT, createdEpoch));
         if (luceneConfig.isStoreContentForHighlight()) {
             doc.add(new StoredField(FIELD_CONTENT + "_stored", text));
         }
@@ -182,12 +191,20 @@ public class LuceneIndexService {
 
     /**
      * Durchsucht den Index mit Paginierung und optionalem Highlighting.
+     * Optional: Zeitfenster auf {@link #FIELD_DOCUMENT_CREATED_AT} (Anwender-Erstellungszeit).
      */
-    public PaginatedSearchResponse search(String queryString, int from, int size, boolean withHighlight) throws Exception {
+    public PaginatedSearchResponse search(
+            String queryString,
+            int from,
+            int size,
+            boolean withHighlight,
+            Instant createdFrom,
+            Instant createdTo) throws Exception {
         IndexSearcher searcher = searcherManager.acquire();
         try {
             QueryParser parser = new QueryParser(FIELD_CONTENT, analyzer);
-            Query query = parser.parse(queryString);
+            Query contentQuery = parser.parse(queryString);
+            Query query = combineWithTimeWindow(contentQuery, createdFrom, createdTo);
             int maxHits = from + size;
             TopDocs topDocs = searcher.search(query, maxHits);
 
@@ -202,7 +219,7 @@ public class LuceneIndexService {
                 String uuid = doc.get(FIELD_ATTACHMENT_UUID);
                 String snippet = null;
                 if (withHighlight && uuid != null && contentFieldForHighlight != null) {
-                    snippet = highlight(searcher, query, scoreDoc.doc, contentFieldForHighlight);
+                    snippet = highlight(searcher, contentQuery, scoreDoc.doc, contentFieldForHighlight);
                 }
                 hits.add(SearchResultHit.builder()
                         .attachmentUuid(uuid)
@@ -223,11 +240,27 @@ public class LuceneIndexService {
 
     /** Einfache Suche ohne Paginierung (Legacy): gibt UUIDs zurück. */
     public List<String> search(String queryString) throws Exception {
-        PaginatedSearchResponse r = search(queryString, 0, 1000, false);
+        PaginatedSearchResponse r = search(queryString, 0, 1000, false, null, null);
         return r.getHits().stream()
                 .map(SearchResultHit::getAttachmentUuid)
                 .filter(java.util.Objects::nonNull)
                 .toList();
+    }
+
+    /**
+     * Kombiniert die Volltext-Query mit einem Zeitfenster auf document_created_at (beide Grenzen inklusiv).
+     */
+    private Query combineWithTimeWindow(Query contentQuery, Instant createdFrom, Instant createdTo) {
+        if (createdFrom == null && createdTo == null) {
+            return contentQuery;
+        }
+        long min = createdFrom != null ? createdFrom.toEpochMilli() : Long.MIN_VALUE;
+        long max = createdTo != null ? createdTo.toEpochMilli() : Long.MAX_VALUE;
+        Query timeQuery = LongPoint.newRangeQuery(FIELD_DOCUMENT_CREATED_AT, min, max);
+        BooleanQuery.Builder b = new BooleanQuery.Builder();
+        b.add(contentQuery, BooleanClause.Occur.MUST);
+        b.add(timeQuery, BooleanClause.Occur.MUST);
+        return b.build();
     }
 
     private String highlight(IndexSearcher searcher, Query query, int docId, String fieldName) {

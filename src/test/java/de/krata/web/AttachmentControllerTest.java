@@ -46,7 +46,7 @@ class AttachmentControllerTest {
                 .size(20)
                 .hits(List.of(SearchResultHit.builder().attachmentUuid("u1").build()))
                 .build();
-        when(luceneIndexService.search(eq("content:test"), eq(0), eq(20), eq(false))).thenReturn(response);
+        when(luceneIndexService.search(eq("content:test"), eq(0), eq(20), eq(false), isNull(), isNull())).thenReturn(response);
         /* ACT */
         var result = mvc.perform(post("/api/search")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -68,7 +68,7 @@ class AttachmentControllerTest {
     @Test
     void indexSyncReturns200() throws Exception {
         /* ARRANGE */
-        when(attachmentIndexService.indexFromUrl(anyString(), anyString()))
+        when(attachmentIndexService.indexFromUrl(anyString(), anyString(), any()))
                 .thenReturn(IndexAttachmentResponse.builder().indexed(true).build());
         /* ACT */
         var result = mvc.perform(post("/api/attachments/index")
@@ -82,7 +82,7 @@ class AttachmentControllerTest {
     @Test
     void indexAsyncReturns202() throws Exception {
         /* ARRANGE */
-        when(asyncIndexingService.submit(anyString(), anyString())).thenReturn(true);
+        when(asyncIndexingService.submit(anyString(), anyString(), any())).thenReturn(true);
         /* ACT */
         var result = mvc.perform(post("/api/attachments/index?async=true")
                 .contentType(MediaType.APPLICATION_JSON)

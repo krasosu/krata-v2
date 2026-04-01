@@ -18,7 +18,7 @@ public class LuceneHealthIndicator implements HealthIndicator {
     @Override
     public Health health() {
         try {
-            var result = luceneIndexService.search("content:__health__", 0, 1, false);
+            var result = luceneIndexService.search("content:__health__", 0, 1, false, null, null);
             return Health.up()
                     .withDetail("indexReadable", true)
                     .withDetail("totalHits", result.getTotal())

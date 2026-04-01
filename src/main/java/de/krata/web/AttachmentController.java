@@ -46,7 +46,7 @@ public class AttachmentController {
             @RequestParam(defaultValue = "false") boolean async) throws Exception {
 
         if (async) {
-            boolean accepted = asyncIndexingService.submit(request.getAttachmentUrl(), request.getAttachmentUuid());
+            boolean accepted = asyncIndexingService.submit(request.getAttachmentUrl(), request.getAttachmentUuid(), request.getDocumentCreatedAt());
             if (!accepted) {
                 throw new QueueFullException("Indizierungs-Queue ist voll. Bitte später erneut versuchen.");
             }
@@ -55,7 +55,7 @@ public class AttachmentController {
                     .status(IndexJobStatus.Status.PENDING)
                     .build());
         }
-        IndexAttachmentResponse response = attachmentIndexService.indexFromUrl(request.getAttachmentUrl(), request.getAttachmentUuid());
+        IndexAttachmentResponse response = attachmentIndexService.indexFromUrl(request.getAttachmentUrl(), request.getAttachmentUuid(), request.getDocumentCreatedAt());
         return ResponseEntity.ok(response);
     }
 
@@ -68,7 +68,7 @@ public class AttachmentController {
     @PostMapping("/attachments/index/batch")
     public ResponseEntity<BatchIndexResponse> indexBatch(@Valid @RequestBody BatchIndexRequest request) {
         List<AsyncIndexingService.IndexTask> tasks = request.getAttachments().stream()
-                .map(a -> new AsyncIndexingService.IndexTask(a.getAttachmentUrl(), a.getAttachmentUuid()))
+                .map(a -> new AsyncIndexingService.IndexTask(a.getAttachmentUrl(), a.getAttachmentUuid(), a.getDocumentCreatedAt()))
                 .toList();
         int accepted = asyncIndexingService.submitBatch(tasks);
         List<IndexJobStatus> jobs = request.getAttachments().stream()
@@ -131,7 +131,9 @@ public class AttachmentController {
                 request.getQuery(),
                 request.getFrom(),
                 request.getSize(),
-                request.isWithHighlight()
+                request.isWithHighlight(),
+                request.getCreatedFrom(),
+                request.getCreatedTo()
         );
         return ResponseEntity.ok(result);
     }

@@ -1,19 +1,11 @@
-# Entwicklungs-Profil: lockere Limits, lokale Dienste, mehr Logs
-spring:
-  data:
-    redis:
-      host: localhost
-      port: 6379
-
+# Entwicklungs-Profil: lockere Limits, mehr Logs
 logging:
   level:
     root: INFO
     de.krata: DEBUG
-    org.springframework.data.redis: DEBUG
 
 krata:
   indexing:
-    use-redis: false
     queue-size: 5000
     threads: 4
   rate-limit:

@@ -1,12 +1,5 @@
 # Produktions-Profil: für Server mit ~128 GB RAM
-# Redis-Queue, großer Lucene-RAM-Cache, viele Worker-Threads
-spring:
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
-
+# Großer Lucene-RAM-Cache, viele Worker-Threads
 logging:
   level:
     root: WARN
@@ -24,13 +17,10 @@ lucene:
 
 krata:
   indexing:
-    use-redis: true
     queue-size: 200000
     threads: 24
     status-max-entries: 200000
     poll-timeout-sec: 5
-    redis:
-      status-ttl-hours: 48
   api-key: ${KRATA_API_KEY:}
   rate-limit:
     index-per-minute: 5000

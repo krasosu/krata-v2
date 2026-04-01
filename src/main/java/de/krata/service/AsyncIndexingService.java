@@ -2,44 +2,55 @@ package de.krata.service;
 
 import de.krata.dto.IndexAttachmentResponse;
 import de.krata.dto.IndexJobStatus;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.*;
 
 /**
  * Asynchrone Indizierung für hohen Durchsatz (50k+/Tag).
- * Nutzt IndexingQueueBackend (In-Memory oder Redis); Redis übersteht Neustarts.
+ * In-Memory-Queue mit Worker-Pool; Status pro attachment_uuid (best-effort, begrenzte Kapazität).
  */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class AsyncIndexingService {
 
     private final AttachmentIndexService attachmentIndexService;
-    private final IndexingQueueBackend backend;
+
+    @Value("${krata.indexing.queue-size:100000}")
+    private int queueSize;
 
     @Value("${krata.indexing.threads:8}")
     private int workerThreads;
 
+    @Value("${krata.indexing.status-max-entries:50000}")
+    private int statusMaxEntries;
+
     @Value("${krata.indexing.poll-timeout-sec:5}")
     private int pollTimeoutSec;
 
+    private BlockingQueue<IndexTask> queue;
+    private final ConcurrentHashMap<String, IndexJobStatus> statusMap = new ConcurrentHashMap<>();
     private ExecutorService executor;
+
+    public AsyncIndexingService(AttachmentIndexService attachmentIndexService) {
+        this.attachmentIndexService = attachmentIndexService;
+    }
 
     @PostConstruct
     public void init() {
+        queue = new LinkedBlockingQueue<>(queueSize);
         executor = Executors.newFixedThreadPool(workerThreads);
         for (int i = 0; i < workerThreads; i++) {
             executor.submit(this::worker);
         }
-        log.info("Async-Indexierung gestartet: threads={}, backend={}", workerThreads, backend.getClass().getSimpleName());
+        log.info("Async-Indexierung gestartet: queueSize={}, threads={}", queueSize, workerThreads);
     }
 
     @PreDestroy
@@ -57,31 +68,42 @@ public class AsyncIndexingService {
         }
     }
 
-    public boolean submit(String attachmentUrl, String attachmentUuid) {
-        return backend.submit(new IndexTask(attachmentUrl, attachmentUuid));
+    public boolean submit(String attachmentUrl, String attachmentUuid, Instant documentCreatedAt) {
+        evictStatusIfNeeded();
+        if (!queue.offer(new IndexTask(attachmentUrl, attachmentUuid, documentCreatedAt))) {
+            return false;
+        }
+        statusMap.put(attachmentUuid, IndexJobStatus.builder()
+                .attachmentUuid(attachmentUuid)
+                .status(IndexJobStatus.Status.PENDING)
+                .build());
+        return true;
     }
 
     public int submitBatch(List<IndexTask> tasks) {
         int accepted = 0;
         for (IndexTask task : tasks) {
-            if (backend.submit(task)) accepted++;
+            if (submit(task.attachmentUrl(), task.attachmentUuid(), task.documentCreatedAt())) {
+                accepted++;
+            }
         }
         return accepted;
     }
 
     public Optional<IndexJobStatus> getStatus(String attachmentUuid) {
-        return backend.getStatus(attachmentUuid);
+        return Optional.ofNullable(statusMap.get(attachmentUuid));
     }
 
     public long getQueueSize() {
-        return backend.getQueueSize();
+        return queue.size();
     }
 
     private void worker() {
         while (true) {
             try {
-                Optional<IndexTask> taskOpt = backend.takeBlocking(pollTimeoutSec);
-                taskOpt.ifPresent(this::process);
+                IndexTask task = queue.poll(pollTimeoutSec, TimeUnit.SECONDS);
+                if (task == null) continue;
+                process(task);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;
@@ -93,15 +115,15 @@ public class AsyncIndexingService {
 
     private void process(IndexTask task) {
         try {
-            IndexAttachmentResponse response = attachmentIndexService.indexFromUrl(task.attachmentUrl(), task.attachmentUuid());
-            backend.setStatus(task.attachmentUuid(), IndexJobStatus.builder()
+            IndexAttachmentResponse response = attachmentIndexService.indexFromUrl(task.attachmentUrl(), task.attachmentUuid(), task.documentCreatedAt());
+            statusMap.put(task.attachmentUuid(), IndexJobStatus.builder()
                     .attachmentUuid(task.attachmentUuid())
                     .status(response.isIndexed() ? IndexJobStatus.Status.INDEXED : IndexJobStatus.Status.SKIPPED)
                     .indexed(response.isIndexed())
                     .build());
         } catch (Exception e) {
             log.warn("Indizierung fehlgeschlagen uuid={}: {}", task.attachmentUuid(), e.getMessage());
-            backend.setStatus(task.attachmentUuid(), IndexJobStatus.builder()
+            statusMap.put(task.attachmentUuid(), IndexJobStatus.builder()
                     .attachmentUuid(task.attachmentUuid())
                     .status(IndexJobStatus.Status.FAILED)
                     .errorMessage(e.getMessage())
@@ -109,5 +131,15 @@ public class AsyncIndexingService {
         }
     }
 
-    public record IndexTask(String attachmentUrl, String attachmentUuid) {}
+    private void evictStatusIfNeeded() {
+        if (statusMap.size() >= statusMaxEntries) {
+            synchronized (statusMap) {
+                if (statusMap.size() >= statusMaxEntries) {
+                    statusMap.keySet().stream().limit(statusMaxEntries / 2).toList().forEach(statusMap::remove);
+                }
+            }
+        }
+    }
+
+    public record IndexTask(String attachmentUrl, String attachmentUuid, Instant documentCreatedAt) {}
 }
