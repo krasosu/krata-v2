@@ -274,10 +274,12 @@ public class LuceneIndexService {
         try {
             // Wichtig für Wildcards/Prefix/Fuzzy (MultiTermQuery): rewrite, damit QueryScorer passende Terme sieht.
             Query rewritten = query.rewrite(searcher.getIndexReader());
+            QueryScorer scorer = new QueryScorer(rewritten, analysisFieldName);
             Highlighter highlighter = new Highlighter(
                     new SimpleHTMLFormatter("<em>", "</em>"),
-                    new QueryScorer(rewritten));
-            highlighter.setTextFragmenter(new SimpleSpanFragmenter(new QueryScorer(rewritten), 200));
+                    scorer);
+            // Wichtig: denselben Scorer fürs Fragmenting nutzen, sonst kann intern init() fehlen → NPE.
+            highlighter.setTextFragmenter(new SimpleSpanFragmenter(scorer, 200));
             Document doc = searcher.storedFields().document(docId);
             String content = doc.get(storedFieldName);
             if (content == null) {
