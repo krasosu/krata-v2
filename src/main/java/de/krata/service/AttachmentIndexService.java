@@ -35,14 +35,20 @@ public class AttachmentIndexService {
      * @param documentCreatedAt optional; Anwender-Erstellungszeit, sonst wird der Indizierungszeitpunkt verwendet
      */
     public IndexAttachmentResponse indexFromUrl(String attachmentUrl, String attachmentUuid, String recordUuid, Instant documentCreatedAt) throws IOException, MinioException, InvalidKeyException, NoSuchAlgorithmException {
+        long t0 = System.nanoTime();
         log.info("Prüfe Attachment für Indizierung: recordUuid={}, attachmentUuid={}, url={}", recordUuid, attachmentUuid, attachmentUrl);
 
+        long tDownload0 = System.nanoTime();
         byte[] data = attachmentDownloadService.downloadAsBytes(attachmentUrl);
+        long tDownloadMs = (System.nanoTime() - tDownload0) / 1_000_000;
+
         String fileName = attachmentDownloadService.parseS3Url(attachmentUrl).objectKey();
         String mimeType = textExtractionService.detectContentType(data, fileName);
 
         if (!indexableContentTypeService.isIndexable(mimeType)) {
-            log.info("Attachment nicht indiziert (Content-Type nicht für Volltextsuche geeignet): uuid={}, mimeType={}", attachmentUuid, mimeType);
+            long totalMs = (System.nanoTime() - t0) / 1_000_000;
+            log.info("Attachment übersprungen: recordUuid={}, attachmentUuid={}, mimeType={}, downloadMs={}, totalMs={}, reason={}",
+                    recordUuid, attachmentUuid, mimeType, tDownloadMs, totalMs, "content_type_not_indexable");
             return IndexAttachmentResponse.builder()
                     .recordUuid(recordUuid)
                     .attachmentUuid(attachmentUuid)
@@ -51,13 +57,20 @@ public class AttachmentIndexService {
                     .build();
         }
 
+        long tExtract0 = System.nanoTime();
         String content = textExtractionService.extractText(data, fileName);
+        long tExtractMs = (System.nanoTime() - tExtract0) / 1_000_000;
         if (content.isBlank()) {
             log.warn("Kein Text aus Attachment extrahiert: uuid={}", attachmentUuid);
         }
 
+        long tIndex0 = System.nanoTime();
         luceneIndexService.indexDocument(recordUuid, attachmentUuid, content, documentCreatedAt);
-        log.info("Attachment indiziert: recordUuid={}, attachmentUuid={}", recordUuid, attachmentUuid);
+        long tIndexMs = (System.nanoTime() - tIndex0) / 1_000_000;
+
+        long totalMs = (System.nanoTime() - t0) / 1_000_000;
+        log.info("Attachment indiziert: recordUuid={}, attachmentUuid={}, mimeType={}, downloadMs={}, extractMs={}, indexMs={}, totalMs={}",
+                recordUuid, attachmentUuid, mimeType, tDownloadMs, tExtractMs, tIndexMs, totalMs);
         return IndexAttachmentResponse.builder()
                 .recordUuid(recordUuid)
                 .attachmentUuid(attachmentUuid)

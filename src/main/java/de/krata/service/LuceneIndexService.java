@@ -64,7 +64,7 @@ public class LuceneIndexService {
         writerConfig.setCommitOnClose(true);
         indexWriter = new IndexWriter(directory, writerConfig);
         searcherManager = new SearcherManager(indexWriter, null);
-        log.info("Lucene-Index initialisiert (persistent, RAM-Cache): {}", path);
+        log.info("Lucene-Index initialisiert (persistent, RAM-Cache): {}, storeContentForHighlight={}", path, luceneConfig.isStoreContentForHighlight());
     }
 
     @Scheduled(cron = "${lucene.retention-cron:0 0 2 * * ?}")
@@ -124,7 +124,9 @@ public class LuceneIndexService {
 
         writerLock.lock();
         try {
-            indexWriter.addDocument(doc);
+            // Upsert nach attachment_uuid: verhindert Duplikate bei Re-Indexing und stellt sicher,
+            // dass neue Stored-Fields (für Highlighting) wirksam werden.
+            indexWriter.updateDocument(new Term(FIELD_ATTACHMENT_UUID, attachmentUuid), doc);
         } finally {
             writerLock.unlock();
         }
@@ -213,7 +215,7 @@ public class LuceneIndexService {
             long total = topDocs.totalHits.value;
             List<SearchResultHit> hits = new ArrayList<>();
             int end = Math.min(from + size, topDocs.scoreDocs.length);
-            String contentFieldForHighlight = luceneConfig.isStoreContentForHighlight() ? FIELD_CONTENT + "_stored" : null;
+            String storedContentField = luceneConfig.isStoreContentForHighlight() ? FIELD_CONTENT + "_stored" : null;
 
             for (int i = from; i < end; i++) {
                 ScoreDoc scoreDoc = topDocs.scoreDocs[i];
@@ -221,8 +223,9 @@ public class LuceneIndexService {
                 String recordUuid = doc.get(FIELD_RECORD_UUID);
                 String uuid = doc.get(FIELD_ATTACHMENT_UUID);
                 String snippet = null;
-                if (withHighlight && uuid != null && contentFieldForHighlight != null) {
-                    snippet = highlight(searcher, contentQuery, scoreDoc.doc, contentFieldForHighlight);
+                if (withHighlight && uuid != null && storedContentField != null) {
+                    // Query wird auf FIELD_CONTENT geparsed, der Text liegt aber in einem StoredField.
+                    snippet = highlight(searcher, contentQuery, scoreDoc.doc, storedContentField, FIELD_CONTENT);
                 }
                 hits.add(SearchResultHit.builder()
                         .recordUuid(recordUuid)
@@ -267,19 +270,30 @@ public class LuceneIndexService {
         return b.build();
     }
 
-    private String highlight(IndexSearcher searcher, Query query, int docId, String fieldName) {
+    private String highlight(IndexSearcher searcher, Query query, int docId, String storedFieldName, String analysisFieldName) {
         try {
+            // Wichtig für Wildcards/Prefix/Fuzzy (MultiTermQuery): rewrite, damit QueryScorer passende Terme sieht.
+            Query rewritten = query.rewrite(searcher.getIndexReader());
             Highlighter highlighter = new Highlighter(
                     new SimpleHTMLFormatter("<em>", "</em>"),
-                    new QueryScorer(query));
-            highlighter.setTextFragmenter(new SimpleSpanFragmenter(new QueryScorer(query), 200));
+                    new QueryScorer(rewritten));
+            highlighter.setTextFragmenter(new SimpleSpanFragmenter(new QueryScorer(rewritten), 200));
             Document doc = searcher.storedFields().document(docId);
-            String content = doc.get(fieldName);
-            if (content == null) return null;
-            String[] fragments = highlighter.getBestFragments(analyzer, fieldName, content, 3);
-            return fragments.length > 0 ? String.join(" ... ", fragments) : null;
+            String content = doc.get(storedFieldName);
+            if (content == null) {
+                log.warn("Highlight nicht möglich: StoredField fehlt (docId={}, storedField={})", docId, storedFieldName);
+                return null;
+            }
+            // Wichtig: analysisFieldName muss zum Feldnamen in der Query passen, sonst matcht der Scorer nichts.
+            String[] fragments = highlighter.getBestFragments(analyzer, analysisFieldName, content, 3);
+            if (fragments.length == 0) {
+                log.info("Kein Highlight-Fragment gefunden (docId={}, query={}, analysisField={})", docId, query, analysisFieldName);
+                return null;
+            }
+            return String.join(" ... ", fragments);
         } catch (Exception e) {
-            log.trace("Highlight fehlgeschlagen: {}", e.getMessage());
+            // In prod ist TRACE nicht sichtbar; WARN hilft bei der Diagnose.
+            log.warn("Highlight fehlgeschlagen (docId={}): {}", docId, e.toString());
             return null;
         }
     }

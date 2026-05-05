@@ -21,6 +21,8 @@ services:
       S3_ACCESS_KEY: minioadmin
       S3_SECRET_KEY: minioadmin
       SPRING_PROFILES_ACTIVE: prod
+      LUCENE_INDEX_PATH: /app/data/lucene-index
+      LUCENE_STORE_CONTENT_FOR_HIGHLIGHT: "true"
     depends_on:
       - minio
     restart: on-failure
