@@ -26,8 +26,7 @@ services:
       - minio
     restart: on-failure
     volumes:
-      - lucene-index:/app/data
+      - ./lucene-index:/app/data
 
 volumes:
   minio-data:
-  lucene-index:
