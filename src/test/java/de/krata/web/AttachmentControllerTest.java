@@ -44,7 +44,7 @@ class AttachmentControllerTest {
                 .total(1)
                 .from(0)
                 .size(20)
-                .hits(List.of(SearchResultHit.builder().attachmentUuid("u1").build()))
+                .hits(List.of(SearchResultHit.builder().recordUuid("r1").attachmentUuid("u1").build()))
                 .build();
         when(luceneIndexService.search(eq("content:test"), eq(0), eq(20), eq(false), isNull(), isNull())).thenReturn(response);
         /* ACT */
@@ -54,6 +54,7 @@ class AttachmentControllerTest {
         /* ASSERT */
         result.andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.hits[0].recordUuid").value("r1"))
                 .andExpect(jsonPath("$.hits[0].attachmentUuid").value("u1"));
     }
 
@@ -68,25 +69,27 @@ class AttachmentControllerTest {
     @Test
     void indexSyncReturns200() throws Exception {
         /* ARRANGE */
-        when(attachmentIndexService.indexFromUrl(anyString(), anyString(), any()))
-                .thenReturn(IndexAttachmentResponse.builder().indexed(true).build());
+        when(attachmentIndexService.indexFromUrl(anyString(), anyString(), anyString(), any()))
+                .thenReturn(IndexAttachmentResponse.builder().recordUuid("r1").attachmentUuid("u1").indexed(true).build());
         /* ACT */
         var result = mvc.perform(post("/api/attachments/index")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"attachmentUrl\":\"http://minio/attachments/x/file.pdf\",\"attachmentUuid\":\"u1\"}"));
+                .content("{\"attachmentUrl\":\"http://minio/attachments/x/file.pdf\",\"attachmentUuid\":\"u1\",\"recordUuid\":\"r1\"}"));
         /* ASSERT */
         result.andExpect(status().isOk())
+                .andExpect(jsonPath("$.recordUuid").value("r1"))
+                .andExpect(jsonPath("$.attachmentUuid").value("u1"))
                 .andExpect(jsonPath("$.indexed").value(true));
     }
 
     @Test
     void indexAsyncReturns202() throws Exception {
         /* ARRANGE */
-        when(asyncIndexingService.submit(anyString(), anyString(), any())).thenReturn(true);
+        when(asyncIndexingService.submit(anyString(), anyString(), anyString(), any())).thenReturn(true);
         /* ACT */
         var result = mvc.perform(post("/api/attachments/index?async=true")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"attachmentUrl\":\"http://minio/attachments/x/file.pdf\",\"attachmentUuid\":\"u1\"}"));
+                .content("{\"attachmentUrl\":\"http://minio/attachments/x/file.pdf\",\"attachmentUuid\":\"u1\",\"recordUuid\":\"r1\"}"));
         /* ASSERT */
         result.andExpect(status().isAccepted());
     }

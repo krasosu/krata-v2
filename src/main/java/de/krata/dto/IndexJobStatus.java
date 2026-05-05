@@ -15,6 +15,7 @@ public class IndexJobStatus {
 
     public enum Status { PENDING, INDEXED, SKIPPED, FAILED }
 
+    private String recordUuid;
     private String attachmentUuid;
     private Status status;
     private Boolean indexed;  // nur bei INDEXED/SKIPPED

@@ -2,11 +2,10 @@ spring:
   application:
     name: krata
 
-# MinIO (S3-kompatibler Storage)
-minio:
-  url: http://localhost:9000
-  access-key: minioadmin
-  secret-key: minioadmin
+# S3-kompatibler Storage (MinIO/Ceph/etc.)
+s3:
+  access-key: ${S3_ACCESS_KEY:minioadmin}
+  secret-key: ${S3_SECRET_KEY:minioadmin}
   bucket: attachments
 
 # Lucene: Index persistent, RAM-Cache, Retention, Commit-Intervall
@@ -55,5 +54,5 @@ management:
   health:
     lucene:
       enabled: true
-    minio:
+    s3:
       enabled: true

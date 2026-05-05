@@ -2,9 +2,6 @@ spring:
   main:
     allow-bean-definition-overriding: true
 
-minio:
-  url: http://localhost:9999
-
 lucene:
   index-path: ./target/test-lucene-index
   retention-days: 0
@@ -18,7 +15,7 @@ krata:
 
 management:
   health:
-    minio:
+    s3:
       enabled: false
     lucene:
       enabled: false

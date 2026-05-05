@@ -34,16 +34,18 @@ public class AttachmentIndexService {
     /**
      * @param documentCreatedAt optional; Anwender-Erstellungszeit, sonst wird der Indizierungszeitpunkt verwendet
      */
-    public IndexAttachmentResponse indexFromUrl(String attachmentUrl, String attachmentUuid, Instant documentCreatedAt) throws IOException, MinioException, InvalidKeyException, NoSuchAlgorithmException {
-        log.info("Prüfe Attachment für Indizierung: uuid={}, url={}", attachmentUuid, attachmentUrl);
+    public IndexAttachmentResponse indexFromUrl(String attachmentUrl, String attachmentUuid, String recordUuid, Instant documentCreatedAt) throws IOException, MinioException, InvalidKeyException, NoSuchAlgorithmException {
+        log.info("Prüfe Attachment für Indizierung: recordUuid={}, attachmentUuid={}, url={}", recordUuid, attachmentUuid, attachmentUrl);
 
         byte[] data = attachmentDownloadService.downloadAsBytes(attachmentUrl);
-        String fileName = attachmentDownloadService.parseMinioUrl(attachmentUrl).objectKey();
+        String fileName = attachmentDownloadService.parseS3Url(attachmentUrl).objectKey();
         String mimeType = textExtractionService.detectContentType(data, fileName);
 
         if (!indexableContentTypeService.isIndexable(mimeType)) {
             log.info("Attachment nicht indiziert (Content-Type nicht für Volltextsuche geeignet): uuid={}, mimeType={}", attachmentUuid, mimeType);
             return IndexAttachmentResponse.builder()
+                    .recordUuid(recordUuid)
+                    .attachmentUuid(attachmentUuid)
                     .indexed(false)
                     .skippedReason("content_type_not_indexable")
                     .build();
@@ -54,8 +56,12 @@ public class AttachmentIndexService {
             log.warn("Kein Text aus Attachment extrahiert: uuid={}", attachmentUuid);
         }
 
-        luceneIndexService.indexDocument(attachmentUuid, content, documentCreatedAt);
-        log.info("Attachment indiziert: uuid={}", attachmentUuid);
-        return IndexAttachmentResponse.builder().indexed(true).build();
+        luceneIndexService.indexDocument(recordUuid, attachmentUuid, content, documentCreatedAt);
+        log.info("Attachment indiziert: recordUuid={}, attachmentUuid={}", recordUuid, attachmentUuid);
+        return IndexAttachmentResponse.builder()
+                .recordUuid(recordUuid)
+                .attachmentUuid(attachmentUuid)
+                .indexed(true)
+                .build();
     }
 }

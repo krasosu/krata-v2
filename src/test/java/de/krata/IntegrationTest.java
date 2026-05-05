@@ -64,9 +64,9 @@ class IntegrationTest {
             .waitingFor(Wait.forHttp("/minio/health/live").forPort(9000).withStartupTimeout(java.time.Duration.ofSeconds(60)));
 
     @DynamicPropertySource
-    static void minioProperties(DynamicPropertyRegistry registry) {
+    static void s3Properties(DynamicPropertyRegistry registry) {
         String url = "http://" + minio.getHost() + ":" + minio.getMappedPort(9000);
-        registry.add("minio.url", () -> url);
+        registry.add("s3.url", () -> url);
     }
 
     @Autowired
@@ -97,8 +97,8 @@ class IntegrationTest {
     @Test
     void indexFromMinioAndSearch() {
         /* ARRANGE */
-        String minioUrl = "http://" + minio.getHost() + ":" + minio.getMappedPort(9000) + "/" + BUCKET + "/" + OBJECT_KEY;
-        var indexRequest = new IndexRequest(minioUrl, ATTACHMENT_UUID);
+        String objectUrl = "http://" + minio.getHost() + ":" + minio.getMappedPort(9000) + "/" + BUCKET + "/" + OBJECT_KEY;
+        var indexRequest = new IndexRequest(objectUrl, ATTACHMENT_UUID, "record-1");
         var searchRequest = new SearchRequest("content:integration", 0, 20, false);
 
         /* ACT */
@@ -118,19 +118,20 @@ class IntegrationTest {
                             if (resp.getStatusCode() != HttpStatus.OK || resp.getBody() == null) return false;
                             var body = resp.getBody();
                             return body.total() >= 1 && body.hits() != null
-                                    && body.hits().stream().anyMatch(hit -> ATTACHMENT_UUID.equals(hit.attachmentUuid()));
+                                    && body.hits().stream().anyMatch(hit ->
+                                            ATTACHMENT_UUID.equals(hit.attachmentUuid()) && "record-1".equals(hit.recordUuid()));
                         });
 
         /* ASSERT – Suchergebnis */
         assertThat(searchResponse.getBody()).isNotNull();
         assertThat(searchResponse.getBody().total()).isGreaterThanOrEqualTo(1);
         assertThat(searchResponse.getBody().hits())
-                .anyMatch(hit -> ATTACHMENT_UUID.equals(hit.attachmentUuid()));
+                .anyMatch(hit -> ATTACHMENT_UUID.equals(hit.attachmentUuid()) && "record-1".equals(hit.recordUuid()));
     }
 
-    private record IndexRequest(String attachmentUrl, String attachmentUuid) {}
-    private record IndexResponse(boolean indexed, String skippedReason) {}
+    private record IndexRequest(String attachmentUrl, String attachmentUuid, String recordUuid) {}
+    private record IndexResponse(String recordUuid, String attachmentUuid, boolean indexed, String skippedReason) {}
     private record SearchRequest(String query, int from, int size, boolean withHighlight) {}
     private record SearchResponse(long total, int from, int size, java.util.List<SearchHit> hits) {}
-    private record SearchHit(String attachmentUuid, String snippet) {}
+    private record SearchHit(String recordUuid, String attachmentUuid, String snippet) {}
 }

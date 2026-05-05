@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class SearchResultHit {
 
+    private String recordUuid;
     private String attachmentUuid;
     /** Snippet mit hervorgehobenen Suchbegriffen (nur wenn angefragt und Content gespeichert). */
     private String snippet;

@@ -68,12 +68,13 @@ public class AsyncIndexingService {
         }
     }
 
-    public boolean submit(String attachmentUrl, String attachmentUuid, Instant documentCreatedAt) {
+    public boolean submit(String attachmentUrl, String attachmentUuid, String recordUuid, Instant documentCreatedAt) {
         evictStatusIfNeeded();
-        if (!queue.offer(new IndexTask(attachmentUrl, attachmentUuid, documentCreatedAt))) {
+        if (!queue.offer(new IndexTask(attachmentUrl, attachmentUuid, recordUuid, documentCreatedAt))) {
             return false;
         }
         statusMap.put(attachmentUuid, IndexJobStatus.builder()
+                .recordUuid(recordUuid)
                 .attachmentUuid(attachmentUuid)
                 .status(IndexJobStatus.Status.PENDING)
                 .build());
@@ -83,7 +84,7 @@ public class AsyncIndexingService {
     public int submitBatch(List<IndexTask> tasks) {
         int accepted = 0;
         for (IndexTask task : tasks) {
-            if (submit(task.attachmentUrl(), task.attachmentUuid(), task.documentCreatedAt())) {
+            if (submit(task.attachmentUrl(), task.attachmentUuid(), task.recordUuid(), task.documentCreatedAt())) {
                 accepted++;
             }
         }
@@ -115,8 +116,9 @@ public class AsyncIndexingService {
 
     private void process(IndexTask task) {
         try {
-            IndexAttachmentResponse response = attachmentIndexService.indexFromUrl(task.attachmentUrl(), task.attachmentUuid(), task.documentCreatedAt());
+            IndexAttachmentResponse response = attachmentIndexService.indexFromUrl(task.attachmentUrl(), task.attachmentUuid(), task.recordUuid(), task.documentCreatedAt());
             statusMap.put(task.attachmentUuid(), IndexJobStatus.builder()
+                    .recordUuid(task.recordUuid())
                     .attachmentUuid(task.attachmentUuid())
                     .status(response.isIndexed() ? IndexJobStatus.Status.INDEXED : IndexJobStatus.Status.SKIPPED)
                     .indexed(response.isIndexed())
@@ -124,6 +126,7 @@ public class AsyncIndexingService {
         } catch (Exception e) {
             log.warn("Indizierung fehlgeschlagen uuid={}: {}", task.attachmentUuid(), e.getMessage());
             statusMap.put(task.attachmentUuid(), IndexJobStatus.builder()
+                    .recordUuid(task.recordUuid())
                     .attachmentUuid(task.attachmentUuid())
                     .status(IndexJobStatus.Status.FAILED)
                     .errorMessage(e.getMessage())
@@ -141,5 +144,5 @@ public class AsyncIndexingService {
         }
     }
 
-    public record IndexTask(String attachmentUrl, String attachmentUuid, Instant documentCreatedAt) {}
+    public record IndexTask(String attachmentUrl, String attachmentUuid, String recordUuid, Instant documentCreatedAt) {}
 }

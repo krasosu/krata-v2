@@ -15,34 +15,39 @@ import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Lädt Attachments aus MinIO/S3 anhand einer Attachment-URL.
- * Erwartet URLs der Form: {minio.url}/{bucket}/{objectKey}
- * z.B. http://localhost:9000/attachments/abc-123/document.pdf
+ * Lädt Attachments aus einem S3-kompatiblen Storage anhand einer Objekt-URL.
+ * Erwartet URLs der Form: {scheme}://{host}:{port}/{bucket}/{objectKey}
+ * z.B. http://localhost:9000/attachments/abc-123/document.pdf.
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AttachmentDownloadService {
 
-    private final MinioClient minioClient;
+    private final ConcurrentHashMap<String, MinioClient> clientByEndpoint = new ConcurrentHashMap<>();
 
-    @Value("${minio.url}")
-    private String minioBaseUrl;
+    @Value("${s3.access-key}")
+    private String accessKey;
+
+    @Value("${s3.secret-key}")
+    private String secretKey;
 
     /**
-     * Lädt die Datei von MinIO anhand der angegebenen URL und gibt den Inhalt als InputStream zurück.
+     * Lädt die Datei aus einem S3-kompatiblen Storage anhand der angegebenen URL und gibt den Inhalt als InputStream zurück.
      * Der Aufrufer ist für das Schließen des Streams verantwortlich.
      *
      * @param attachmentUrl vollständige URL zum Objekt (z.B. http://localhost:9000/attachments/uuid/file.pdf)
      * @return InputStream des Objektinhalts
      */
     public InputStream download(String attachmentUrl) throws IOException, MinioException, InvalidKeyException, NoSuchAlgorithmException {
-        var parsed = parseMinioUrl(attachmentUrl);
-        log.debug("Lade Objekt von MinIO: bucket={}, object={}", parsed.bucket(), parsed.objectKey());
+        var parsed = parseS3Url(attachmentUrl);
+        MinioClient client = getClientForEndpoint(parsed.endpoint());
+        log.debug("Lade Objekt von S3: endpoint={}, bucket={}, object={}", parsed.endpoint(), parsed.bucket(), parsed.objectKey());
 
-        return minioClient.getObject(
+        return client.getObject(
                 GetObjectArgs.builder()
                         .bucket(parsed.bucket())
                         .object(parsed.objectKey())
@@ -60,15 +65,21 @@ public class AttachmentDownloadService {
     }
 
     /**
-     * Parst eine MinIO/S3-URL und extrahiert Bucket und Object-Key.
+     * Parst eine S3-kompatible Objekt-URL und extrahiert Endpoint, Bucket und Object-Key.
      * Erwartet: {scheme}://{host}:{port}/{bucket}/{keyPart1}/{keyPart2}/...
      */
-    public MinioLocation parseMinioUrl(String attachmentUrl) {
+    public S3Location parseS3Url(String attachmentUrl) {
         try {
             URI uri = new URI(attachmentUrl);
+            if (uri.getScheme() == null || uri.getHost() == null) {
+                throw new IllegalArgumentException("Ungültige Attachment-URL: scheme/host fehlt: " + attachmentUrl);
+            }
+            String endpoint = uri.getPort() > 0
+                    ? uri.getScheme() + "://" + uri.getHost() + ":" + uri.getPort()
+                    : uri.getScheme() + "://" + uri.getHost();
             String path = uri.getPath();
             if (path == null || path.isEmpty() || path.equals("/")) {
-                throw new IllegalArgumentException("Ungültige Attachment-URL: Pfad fehlt. Erwartet: " + minioBaseUrl + "/{bucket}/{objectKey}");
+                throw new IllegalArgumentException("Ungültige Attachment-URL: Pfad fehlt. Erwartet: {endpoint}/{bucket}/{objectKey}");
             }
             // Pfad ohne führenden Slash in Segmente zerlegen
             String withoutLeading = path.startsWith("/") ? path.substring(1) : path;
@@ -81,13 +92,22 @@ public class AttachmentDownloadService {
                     ? String.join("/", segments.subList(1, segments.size()))
                     : "";
             if (objectKey.isEmpty()) {
-                throw new IllegalArgumentException("Ungültige Attachment-URL: Object-Key fehlt. Erwartet: " + minioBaseUrl + "/{bucket}/{objectKey}");
+                throw new IllegalArgumentException("Ungültige Attachment-URL: Object-Key fehlt. Erwartet: {endpoint}/{bucket}/{objectKey}");
             }
-            return new MinioLocation(bucket, objectKey);
+            return new S3Location(endpoint, bucket, objectKey);
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException("Ungültige Attachment-URL: " + attachmentUrl, e);
         }
     }
 
-    public record MinioLocation(String bucket, String objectKey) {}
+    private MinioClient getClientForEndpoint(String endpoint) {
+        return clientByEndpoint.computeIfAbsent(endpoint, ep ->
+                MinioClient.builder()
+                        .endpoint(ep)
+                        .credentials(accessKey, secretKey)
+                        .build()
+        );
+    }
+
+    public record S3Location(String endpoint, String bucket, String objectKey) {}
 }

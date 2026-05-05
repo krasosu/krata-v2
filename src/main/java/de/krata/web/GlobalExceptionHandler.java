@@ -70,15 +70,15 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({ MinioException.class, InvalidKeyException.class, NoSuchAlgorithmException.class })
-    public ResponseEntity<ApiError> handleMinio(Exception ex, HttpServletRequest req) {
-        log.warn("MinIO-Fehler: {}", ex.getMessage());
+    public ResponseEntity<ApiError> handleS3(Exception ex, HttpServletRequest req) {
+        log.warn("S3-Storage-Fehler: {}", ex.getMessage());
         ApiError error = ApiError.builder()
                 .timestamp(Instant.now())
                 .status(HttpStatus.UNPROCESSABLE_ENTITY.value())
                 .error("Unprocessable Entity")
-                .message("MinIO nicht erreichbar oder Zugriff fehlgeschlagen")
+                .message("S3 Storage nicht erreichbar oder Zugriff fehlgeschlagen")
                 .path(req.getRequestURI())
-                .code("MINIO_ERROR")
+                .code("STORAGE_ERROR")
                 .build();
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(error);
     }

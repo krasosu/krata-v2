@@ -1,10 +1,10 @@
-# Krata – Volltextsuche mit Lucene und MinIO
+# Krata – Volltextsuche mit Lucene und S3 Storage
 
-Spring-Boot-Anwendung (JDK 21, Lombok) zur Volltext-Indizierung von Attachments aus einem S3-kompatiblen Storage (MinIO) mit Apache Lucene. Ausgelegt auf **hohen Durchsatz** (z.B. 50.000 Attachments/Tag) und **stabilen Produktivbetrieb** mit Retention (14/30 Tage), asynchroner Indizierung, Rate-Limiting und Health-Checks.
+Spring-Boot-Anwendung (JDK 21, Lombok) zur Volltext-Indizierung von Attachments aus einem **S3-kompatiblen Storage** (z.B. MinIO/Ceph) mit Apache Lucene. Ausgelegt auf **hohen Durchsatz** (z.B. 50.000 Attachments/Tag) und **stabilen Produktivbetrieb** mit Retention (14/30 Tage), asynchroner Indizierung, Rate-Limiting und Health-Checks.
 
 ## Ablauf
 
-1. **Indizierung:** Über REST wird eine Attachment-URL (MinIO) und eine `attachment_uuid` übergeben. Die Anwendung lädt die Datei aus MinIO, prüft den Content-Type und indiziert **nur sinnvolle Typen** (Dokumente, Text). **Audio, Video und Bilder** werden nicht indiziert. Indizierung kann **synchron**, **asynchron** (In-Memory-Queue) oder als **Batch** erfolgen.
+1. **Indizierung:** Über REST wird eine Objekt-URL (S3-kompatibel) und eine `attachment_uuid` übergeben. Die Anwendung lädt die Datei aus dem Storage, prüft den Content-Type und indiziert **nur sinnvolle Typen** (Dokumente, Text). **Audio, Video und Bilder** werden nicht indiziert. Indizierung kann **synchron**, **asynchron** (In-Memory-Queue) oder als **Batch** erfolgen.
 2. **Suche:** Über REST wird eine Lucene-Query übergeben; Antwort ist **paginiert** (from, size, total) und kann **Snippets** (Highlighting) enthalten.
 3. **Retention:** Dokumente älter als konfigurierte Tage (z.B. 30) werden automatisch aus dem Index entfernt.
 
@@ -14,9 +14,9 @@ Der **Lucene-Index** liegt persistent auf Platte, nutzt **RAM-Caching** (NRTCach
 
 - JDK 21
 - Maven 3.9+
-- MinIO (lokal z.B. per Docker)
+- S3-kompatibles Storage (lokal z.B. MinIO per Docker)
 
-## MinIO starten (Docker)
+## MinIO starten (Docker, nur für Tests/Dev)
 
 ```bash
 docker run -d -p 9000:9000 -p 9001:9001 --name minio \
@@ -25,11 +25,11 @@ docker run -d -p 9000:9000 -p 9001:9001 --name minio \
   quay.io/minio/minio server /data --console-address ":9001"
 ```
 
-Bucket `attachments` anlegen; Attachment-URL z.B.: `http://localhost:9000/attachments/abc-123/document.pdf`
+Bucket `attachments` anlegen; Objekt-URL z.B.: `http://localhost:9000/attachments/abc-123/document.pdf`
 
 ## Konfiguration (Auszug)
 
-- **minio.*** – URL, Access-Key, Secret-Key
+- **s3.*** – Access-Key, Secret-Key (Endpoint kommt pro Request als Objekt-URL im POST)
 - **lucene.index-path** – Persistenter Index-Pfad
 - **lucene.cache.*** – RAM-Cache (max-merge-size-mb, max-cached-mb)
 - **lucene.commit-interval-sec** – Commit-Intervall (Sekunden) für Batches
@@ -119,7 +119,7 @@ Antwort: `{ "total": 42, "from": 0, "size": 20, "hits": [ { "attachmentUuid": ".
 
 ### Fehlerantworten
 
-Alle Fehler liefern ein einheitliches JSON (`timestamp`, `status`, `error`, `message`, `path`, `code`, ggf. `fields`). Codes z.B.: `VALIDATION_ERROR`, `MINIO_ERROR`, `INDEX_ERROR`, `INVALID_QUERY`, `QUEUE_FULL`, `RATE_LIMIT_EXCEEDED`.
+Alle Fehler liefern ein einheitliches JSON (`timestamp`, `status`, `error`, `message`, `path`, `code`, ggf. `fields`). Codes z.B.: `VALIDATION_ERROR`, `STORAGE_ERROR`, `INDEX_ERROR`, `INVALID_QUERY`, `QUEUE_FULL`, `RATE_LIMIT_EXCEEDED`.
 
 ## Health & Betrieb
 

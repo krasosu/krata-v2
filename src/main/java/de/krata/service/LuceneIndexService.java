@@ -34,6 +34,7 @@ import java.util.concurrent.locks.ReentrantLock;
 @RequiredArgsConstructor
 public class LuceneIndexService {
 
+    public static final String FIELD_RECORD_UUID = "record_uuid";
     public static final String FIELD_ATTACHMENT_UUID = "attachment_uuid";
     public static final String FIELD_CONTENT = "content";
     public static final String FIELD_INDEXED_AT = "indexed_at";
@@ -105,10 +106,11 @@ public class LuceneIndexService {
     /**
      * @param documentCreatedAt Anwender-Erstellungszeit; {@code null} → es wird der Indizierungszeitpunkt verwendet
      */
-    public void indexDocument(String attachmentUuid, String content, Instant documentCreatedAt) throws IOException {
+    public void indexDocument(String recordUuid, String attachmentUuid, String content, Instant documentCreatedAt) throws IOException {
         long now = System.currentTimeMillis();
         long createdEpoch = documentCreatedAt != null ? documentCreatedAt.toEpochMilli() : now;
         Document doc = new Document();
+        doc.add(new StringField(FIELD_RECORD_UUID, recordUuid, Field.Store.YES));
         doc.add(new StringField(FIELD_ATTACHMENT_UUID, attachmentUuid, Field.Store.YES));
         String text = content != null ? content : "";
         doc.add(new TextField(FIELD_CONTENT, text, Field.Store.NO));
@@ -126,7 +128,7 @@ public class LuceneIndexService {
         } finally {
             writerLock.unlock();
         }
-        log.trace("Dokument eingereiht: attachment_uuid={}", attachmentUuid);
+        log.trace("Dokument eingereiht: record_uuid={}, attachment_uuid={}", recordUuid, attachmentUuid);
     }
 
     /**
@@ -216,12 +218,14 @@ public class LuceneIndexService {
             for (int i = from; i < end; i++) {
                 ScoreDoc scoreDoc = topDocs.scoreDocs[i];
                 Document doc = searcher.storedFields().document(scoreDoc.doc);
+                String recordUuid = doc.get(FIELD_RECORD_UUID);
                 String uuid = doc.get(FIELD_ATTACHMENT_UUID);
                 String snippet = null;
                 if (withHighlight && uuid != null && contentFieldForHighlight != null) {
                     snippet = highlight(searcher, contentQuery, scoreDoc.doc, contentFieldForHighlight);
                 }
                 hits.add(SearchResultHit.builder()
+                        .recordUuid(recordUuid)
                         .attachmentUuid(uuid)
                         .snippet(snippet)
                         .build());

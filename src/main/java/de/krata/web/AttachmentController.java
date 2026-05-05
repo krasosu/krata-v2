@@ -46,16 +46,17 @@ public class AttachmentController {
             @RequestParam(defaultValue = "false") boolean async) throws Exception {
 
         if (async) {
-            boolean accepted = asyncIndexingService.submit(request.getAttachmentUrl(), request.getAttachmentUuid(), request.getDocumentCreatedAt());
+            boolean accepted = asyncIndexingService.submit(request.getAttachmentUrl(), request.getAttachmentUuid(), request.getRecordUuid(), request.getDocumentCreatedAt());
             if (!accepted) {
                 throw new QueueFullException("Indizierungs-Queue ist voll. Bitte später erneut versuchen.");
             }
             return ResponseEntity.accepted().body(IndexJobStatus.builder()
+                    .recordUuid(request.getRecordUuid())
                     .attachmentUuid(request.getAttachmentUuid())
                     .status(IndexJobStatus.Status.PENDING)
                     .build());
         }
-        IndexAttachmentResponse response = attachmentIndexService.indexFromUrl(request.getAttachmentUrl(), request.getAttachmentUuid(), request.getDocumentCreatedAt());
+        IndexAttachmentResponse response = attachmentIndexService.indexFromUrl(request.getAttachmentUrl(), request.getAttachmentUuid(), request.getRecordUuid(), request.getDocumentCreatedAt());
         return ResponseEntity.ok(response);
     }
 
@@ -68,12 +69,13 @@ public class AttachmentController {
     @PostMapping("/attachments/index/batch")
     public ResponseEntity<BatchIndexResponse> indexBatch(@Valid @RequestBody BatchIndexRequest request) {
         List<AsyncIndexingService.IndexTask> tasks = request.getAttachments().stream()
-                .map(a -> new AsyncIndexingService.IndexTask(a.getAttachmentUrl(), a.getAttachmentUuid(), a.getDocumentCreatedAt()))
+                .map(a -> new AsyncIndexingService.IndexTask(a.getAttachmentUrl(), a.getAttachmentUuid(), a.getRecordUuid(), a.getDocumentCreatedAt()))
                 .toList();
         int accepted = asyncIndexingService.submitBatch(tasks);
         List<IndexJobStatus> jobs = request.getAttachments().stream()
                 .limit(accepted)
                 .map(a -> IndexJobStatus.builder()
+                        .recordUuid(a.getRecordUuid())
                         .attachmentUuid(a.getAttachmentUuid())
                         .status(IndexJobStatus.Status.PENDING)
                         .build())

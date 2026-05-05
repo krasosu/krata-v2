@@ -16,6 +16,12 @@ import lombok.NoArgsConstructor;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class IndexAttachmentResponse {
 
+    /** Record-UUID (Echo der Anfrage) */
+    private String recordUuid;
+
+    /** Attachment-UUID (Echo der Anfrage) */
+    private String attachmentUuid;
+
     /** true wenn das Attachment in Lucene indiziert wurde */
     private boolean indexed;
 

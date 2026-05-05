@@ -28,6 +28,12 @@ public class IndexAttachmentRequest {
     private String attachmentUuid;
 
     /**
+     * Eindeutige ID des Records (z.B. Geschäftsobjekt), zu dem das Attachment gehört.
+     */
+    @NotBlank(message = "recordUuid ist erforderlich")
+    private String recordUuid;
+
+    /**
      * Ursprünglicher Erstellungszeitpunkt durch den Anwender (ISO-8601).
      * Ohne Angabe wird bei der Indizierung der aktuelle Zeitpunkt verwendet (entspricht dann typischerweise der Indizierungszeit).
      */
