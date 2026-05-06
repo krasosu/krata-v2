@@ -25,11 +25,12 @@ docker run -d -p 9000:9000 -p 9001:9001 --name minio \
   quay.io/minio/minio server /data --console-address ":9001"
 ```
 
-Bucket `attachments` anlegen; Objekt-URL z.B.: `http://localhost:9000/attachments/abc-123/document.pdf`
+Bucket `attachments` anlegen; Objekt-URL ist immer **Path-Style**: `{S3_BASE_URL}/{bucket}/{objectKey}`.
 
 ## Konfiguration (Auszug)
 
-- **s3.*** – Access-Key, Secret-Key (Endpoint kommt pro Request als Objekt-URL im POST)
+- **s3.base-url** – erlaubter Endpoint für Objekt-URLs (aus `S3_BASE_URL`)
+- **s3.access-key / s3.secret-key** – Credentials (aus `S3_ACCESS_KEY` / `S3_SECRET_KEY`)
 - **lucene.index-path** – Persistenter Index-Pfad
 - **lucene.cache.*** – RAM-Cache (max-merge-size-mb, max-cached-mb)
 - **lucene.commit-interval-sec** – Commit-Intervall (Sekunden) für Batches

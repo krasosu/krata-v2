@@ -15,25 +15,29 @@ import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Lädt Attachments aus einem S3-kompatiblen Storage anhand einer Objekt-URL.
- * Erwartet URLs der Form: {scheme}://{host}:{port}/{bucket}/{objectKey}
- * z.B. http://localhost:9000/attachments/abc-123/document.pdf.
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AttachmentDownloadService {
 
-    private final ConcurrentHashMap<String, MinioClient> clientByEndpoint = new ConcurrentHashMap<>();
-
     @Value("${s3.access-key}")
     private String accessKey;
 
     @Value("${s3.secret-key}")
     private String secretKey;
+
+    /**
+     * Erlaubter Storage-Endpoint als Base-URL (Schema + Host + optional Port).
+     * Beispiel: http://minio:9000 oder https://s3.example.tld
+     */
+    @Value("${s3.base-url:}")
+    private String s3BaseUrl;
+
+    private volatile MinioClient s3Client;
 
     /**
      * Lädt die Datei aus einem S3-kompatiblen Storage anhand der angegebenen URL und gibt den Inhalt als InputStream zurück.
@@ -44,7 +48,7 @@ public class AttachmentDownloadService {
      */
     public InputStream download(String attachmentUrl) throws IOException, MinioException, InvalidKeyException, NoSuchAlgorithmException {
         var parsed = parseS3Url(attachmentUrl);
-        MinioClient client = getClientForEndpoint(parsed.endpoint());
+        MinioClient client = getS3Client();
         log.debug("Lade Objekt von S3: endpoint={}, bucket={}, object={}", parsed.endpoint(), parsed.bucket(), parsed.objectKey());
 
         return client.getObject(
@@ -66,7 +70,9 @@ public class AttachmentDownloadService {
 
     /**
      * Parst eine S3-kompatible Objekt-URL und extrahiert Endpoint, Bucket und Object-Key.
-     * Erwartet: {scheme}://{host}:{port}/{bucket}/{keyPart1}/{keyPart2}/...
+     *
+     * Erwartet Path-Style: {s3.base-url}/{bucket}/{objectKey...}
+     * Der Host der attachmentUrl muss exakt zum konfigurierten s3.base-url passen.
      */
     public S3Location parseS3Url(String attachmentUrl) {
         try {
@@ -74,39 +80,65 @@ public class AttachmentDownloadService {
             if (uri.getScheme() == null || uri.getHost() == null) {
                 throw new IllegalArgumentException("Ungültige Attachment-URL: scheme/host fehlt: " + attachmentUrl);
             }
-            String endpoint = uri.getPort() > 0
-                    ? uri.getScheme() + "://" + uri.getHost() + ":" + uri.getPort()
-                    : uri.getScheme() + "://" + uri.getHost();
+            String endpoint = normalizeEndpoint(uri);
+            String expectedEndpoint = normalizeEndpoint(new URI(requireS3BaseUrl()));
+            if (!endpoint.equals(expectedEndpoint)) {
+                throw new IllegalArgumentException("Ungültige Attachment-URL: Host passt nicht zum konfigurierten s3.base-url");
+            }
+
             String path = uri.getPath();
             if (path == null || path.isEmpty() || path.equals("/")) {
-                throw new IllegalArgumentException("Ungültige Attachment-URL: Pfad fehlt. Erwartet: {endpoint}/{bucket}/{objectKey}");
+                throw new IllegalArgumentException("Ungültige Attachment-URL: Pfad fehlt. Erwartet: {s3.base-url}/{bucket}/{objectKey}");
             }
             // Pfad ohne führenden Slash in Segmente zerlegen
             String withoutLeading = path.startsWith("/") ? path.substring(1) : path;
-            List<String> segments = List.of(withoutLeading.split("/"));
-            if (segments.isEmpty()) {
+            List<String> segments = withoutLeading.isEmpty() ? List.of() : List.of(withoutLeading.split("/"));
+
+            if (segments.size() < 2) {
                 throw new IllegalArgumentException("Ungültige Attachment-URL: Bucket und Object-Key fehlen.");
             }
             String bucket = segments.get(0);
-            String objectKey = segments.size() > 1
-                    ? String.join("/", segments.subList(1, segments.size()))
-                    : "";
-            if (objectKey.isEmpty()) {
-                throw new IllegalArgumentException("Ungültige Attachment-URL: Object-Key fehlt. Erwartet: {endpoint}/{bucket}/{objectKey}");
-            }
+            String objectKey = String.join("/", segments.subList(1, segments.size()));
             return new S3Location(endpoint, bucket, objectKey);
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException("Ungültige Attachment-URL: " + attachmentUrl, e);
         }
     }
 
-    private MinioClient getClientForEndpoint(String endpoint) {
-        return clientByEndpoint.computeIfAbsent(endpoint, ep ->
-                MinioClient.builder()
-                        .endpoint(ep)
+    private MinioClient getS3Client() {
+        MinioClient existing = s3Client;
+        if (existing != null) return existing;
+        synchronized (this) {
+            if (s3Client == null) {
+                s3Client = MinioClient.builder()
+                        .endpoint(requireS3BaseUrl())
                         .credentials(accessKey, secretKey)
-                        .build()
-        );
+                        .build();
+            }
+            return s3Client;
+        }
+    }
+
+    private String requireS3BaseUrl() {
+        if (s3BaseUrl == null || s3BaseUrl.isBlank()) {
+            throw new IllegalStateException("s3.base-url ist nicht konfiguriert. Bitte S3_BASE_URL setzen.");
+        }
+        return s3BaseUrl.trim();
+    }
+
+    private String normalizeEndpoint(URI uri) {
+        int port = uri.getPort();
+        if (port < 0) {
+            if ("https".equalsIgnoreCase(uri.getScheme())) port = 443;
+            if ("http".equalsIgnoreCase(uri.getScheme())) port = 80;
+        }
+        boolean isDefaultPort = ("https".equalsIgnoreCase(uri.getScheme()) && port == 443)
+                || ("http".equalsIgnoreCase(uri.getScheme()) && port == 80)
+                || port < 0;
+        if (isDefaultPort) {
+            return uri.getScheme() + "://" + uri.getHost();
+        }
+        return uri.getScheme() + "://" + uri.getHost() + ":" + port;
     }
 
     public record S3Location(String endpoint, String bucket, String objectKey) {}
