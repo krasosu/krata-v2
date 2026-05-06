@@ -17,7 +17,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
 /**
- * Lädt Attachments aus einem S3-kompatiblen Storage anhand einer Objekt-URL.
+ * Downloads objects from an S3-compatible storage using an object URL.
  */
 @Service
 @RequiredArgsConstructor
@@ -31,8 +31,8 @@ public class AttachmentDownloadService {
     private String secretKey;
 
     /**
-     * Erlaubter Storage-Endpoint als Base-URL (Schema + Host + optional Port).
-     * Beispiel: http://minio:9000 oder https://s3.example.tld
+     * Allowed storage endpoint as base URL (scheme + host + optional port).
+     * Example: http://minio:9000 or https://s3.example.tld
      */
     @Value("${s3.base-url:}")
     private String s3BaseUrl;
@@ -40,11 +40,11 @@ public class AttachmentDownloadService {
     private volatile MinioClient s3Client;
 
     /**
-     * Lädt die Datei aus einem S3-kompatiblen Storage anhand der angegebenen URL und gibt den Inhalt als InputStream zurück.
-     * Der Aufrufer ist für das Schließen des Streams verantwortlich.
+     * Downloads the object behind the provided URL and returns it as an InputStream.
+     * The caller is responsible for closing the stream.
      *
-     * @param attachmentUrl vollständige URL zum Objekt (z.B. http://localhost:9000/attachments/uuid/file.pdf)
-     * @return InputStream des Objektinhalts
+     * @param attachmentUrl full object URL (path-style)
+     * @return object content stream
      */
     public InputStream download(String attachmentUrl) throws IOException, MinioException, InvalidKeyException, NoSuchAlgorithmException {
         var parsed = parseS3Url(attachmentUrl);
@@ -60,7 +60,7 @@ public class AttachmentDownloadService {
     }
 
     /**
-     * Lädt die komplette Datei als Byte-Array (für Tika/Indizierung).
+     * Downloads the full object as a byte array (for Tika/indexing).
      */
     public byte[] downloadAsBytes(String attachmentUrl) throws IOException, MinioException, InvalidKeyException, NoSuchAlgorithmException {
         try (InputStream in = download(attachmentUrl)) {
@@ -69,10 +69,10 @@ public class AttachmentDownloadService {
     }
 
     /**
-     * Parst eine S3-kompatible Objekt-URL und extrahiert Endpoint, Bucket und Object-Key.
+     * Parses an S3-compatible object URL and extracts endpoint, bucket and object key.
      *
-     * Erwartet Path-Style: {s3.base-url}/{bucket}/{objectKey...}
-     * Der Host der attachmentUrl muss exakt zum konfigurierten s3.base-url passen.
+     * Expects path-style: {s3.base-url}/{bucket}/{objectKey...}
+     * The attachmentUrl host must exactly match the configured s3.base-url.
      */
     public S3Location parseS3Url(String attachmentUrl) {
         try {
@@ -90,7 +90,7 @@ public class AttachmentDownloadService {
             if (path == null || path.isEmpty() || path.equals("/")) {
                 throw new IllegalArgumentException("Ungültige Attachment-URL: Pfad fehlt. Erwartet: {s3.base-url}/{bucket}/{objectKey}");
             }
-            // Pfad ohne führenden Slash in Segmente zerlegen
+            // Split path into segments (without leading slash)
             String withoutLeading = path.startsWith("/") ? path.substring(1) : path;
             List<String> segments = withoutLeading.isEmpty() ? List.of() : List.of(withoutLeading.split("/"));
 

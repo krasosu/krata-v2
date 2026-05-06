@@ -28,8 +28,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 /**
- * Integrationstest mit echtem MinIO (Testcontainers): Bucket anlegen, Datei hochladen,
- * indizieren, suchen und Treffer prüfen.
+ * Integration test with real MinIO (Testcontainers): create bucket, upload object,
+ * index it, search it and verify hits.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
@@ -38,8 +38,8 @@ import static org.awaitility.Awaitility.await;
 class IntegrationTest {
 
     /**
-     * Nur bei verfügbarem Docker ausführen. Ohne Docker erscheint ggf. eine ERROR-Logzeile
-     * von Testcontainers – der Test wird dann trotzdem korrekt übersprungen (Skipped).
+     * Only runs when Docker is available. Without Docker, Testcontainers may log an ERROR line;
+     * the test is still skipped correctly.
      */
     static boolean dockerAvailable() {
         try {
@@ -109,7 +109,7 @@ class IntegrationTest {
         assertThat(indexResponse.getBody()).isNotNull();
         assertThat(indexResponse.getBody().indexed()).isTrue();
 
-        /* ACT – Suche (mit Polling bis Lucene-Commit durch ist, max. 15 s in CI) */
+        /* ACT – search (polling until Lucene commit is visible, max. 15 s in CI) */
         var searchResponse = await()
                 .atMost(15, TimeUnit.SECONDS)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
@@ -122,7 +122,7 @@ class IntegrationTest {
                                             ATTACHMENT_UUID.equals(hit.attachmentUuid()) && "record-1".equals(hit.recordUuid()));
                         });
 
-        /* ASSERT – Suchergebnis */
+        /* ASSERT – search result */
         assertThat(searchResponse.getBody()).isNotNull();
         assertThat(searchResponse.getBody().total()).isGreaterThanOrEqualTo(1);
         assertThat(searchResponse.getBody().hits())

@@ -14,8 +14,8 @@ import java.util.Optional;
 import java.util.concurrent.*;
 
 /**
- * Asynchrone Indizierung für hohen Durchsatz (50k+/Tag).
- * In-Memory-Queue mit Worker-Pool; Status pro attachment_uuid (best-effort, begrenzte Kapazität).
+ * Asynchronous indexing for high throughput (50k+/day).
+ * In-memory queue with a worker pool; status per attachment_uuid (best-effort, bounded capacity).
  */
 @Service
 @Slf4j

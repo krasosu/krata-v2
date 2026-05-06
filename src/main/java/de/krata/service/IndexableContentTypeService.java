@@ -6,16 +6,16 @@ import org.springframework.stereotype.Service;
 import java.util.Set;
 
 /**
- * Entscheidet, ob ein Attachment für die Lucene-Volltextsuche indiziert werden soll.
- * Audio, Video und reine Bildformate werden übersprungen (kein sinnvoller Volltext).
+ * Decides whether an object should be indexed for Lucene full-text search.
+ * Audio, video and pure image formats are skipped (no meaningful full-text).
  */
 @Service
 @Slf4j
 public class IndexableContentTypeService {
 
     /**
-     * MIME-Typen bzw. -Präfixe, die nicht indiziert werden (z.B. Audio, Video).
-     * Alles andere (Dokumente, Text) wird indiziert.
+     * MIME type prefixes that should not be indexed (e.g. audio, video).
+     * Everything else (documents, text) will be indexed.
      */
     private static final Set<String> NON_INDEXABLE_PREFIXES = Set.of(
             "audio/",
@@ -24,10 +24,10 @@ public class IndexableContentTypeService {
     );
 
     /**
-     * Prüft, ob der gegebene MIME-Type für eine Lucene-Indizierung geeignet ist.
+     * Checks whether the given MIME type is suitable for Lucene indexing.
      *
-     * @param mimeType von Tika erkannter Content-Type (z.B. "application/pdf", "audio/mpeg")
-     * @return true wenn indiziert werden soll, false z.B. für Audio/Video/Bilder
+     * @param mimeType content type detected by Tika (e.g. "application/pdf", "audio/mpeg")
+     * @return true if it should be indexed, false for audio/video/images
      */
     public boolean isIndexable(String mimeType) {
         if (mimeType == null || mimeType.isBlank()) {

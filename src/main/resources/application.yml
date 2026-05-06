@@ -18,7 +18,7 @@ lucene:
     max-cached-mb: 60.0
   commit-interval-sec: 3
   retention-days: 30
-  retention-cron: "0 0 2 * * ?"   # täglich 2:00
+  retention-cron: "0 0 2 * * ?"   # daily at 02:00
   store-content-for-highlight: false
 
 # Async-Indizierung + Sicherheit

@@ -16,26 +16,26 @@ import java.time.Instant;
 public class IndexAttachmentRequest {
 
     /**
-     * URL des Attachments im S3/MinIO Storage (z.B. http://localhost:9000/attachments/uuid/datei.pdf)
+     * Object URL in the S3-compatible storage (path-style: {S3_BASE_URL}/{bucket}/{objectKey}).
      */
     @NotBlank(message = "attachmentUrl ist erforderlich")
     private String attachmentUrl;
 
     /**
-     * Eindeutige ID des Attachments (wird als Metadatum im Lucene-Index gespeichert)
+     * Unique attachment ID (stored as metadata in the Lucene index).
      */
     @NotBlank(message = "attachmentUuid ist erforderlich")
     private String attachmentUuid;
 
     /**
-     * Eindeutige ID des Records (z.B. Geschäftsobjekt), zu dem das Attachment gehört.
+     * Unique record ID (business object) the attachment belongs to.
      */
     @NotBlank(message = "recordUuid ist erforderlich")
     private String recordUuid;
 
     /**
-     * Ursprünglicher Erstellungszeitpunkt durch den Anwender (ISO-8601).
-     * Ohne Angabe wird bei der Indizierung der aktuelle Zeitpunkt verwendet (entspricht dann typischerweise der Indizierungszeit).
+     * User-provided creation timestamp (ISO-8601).
+     * If omitted, the indexing timestamp is used.
      */
     @Schema(description = "Optional: Anwender-Erstellungszeitpunkt (ISO-8601). Ohne Angabe: Zeitpunkt der Indizierung.")
     private Instant documentCreatedAt;

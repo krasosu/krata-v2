@@ -18,15 +18,15 @@ public class LuceneConfig {
     @Value("${lucene.cache.max-cached-mb:60.0}")
     private double maxCachedMb;
 
-    /** Commit-Intervall (Sekunden) – Batches für hohen Durchsatz. */
+    /** Commit interval (seconds) for high throughput batching. */
     @Value("${lucene.commit-interval-sec:3}")
     private int commitIntervalSec;
 
-    /** Retention: Dokumente älter als diese Anzahl Tage werden gelöscht (0 = deaktiviert). */
+    /** Retention: documents older than this number of days are deleted (0 = disabled). */
     @Value("${lucene.retention-days:30}")
     private int retentionDays;
 
-    /** Content speichern für Snippet-Highlighting (erhöht Speicherbedarf). */
+    /** Store content for snippet highlighting (increases storage usage). */
     @Value("${lucene.store-content-for-highlight:false}")
     private boolean storeContentForHighlight;
 

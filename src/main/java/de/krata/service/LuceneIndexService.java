@@ -26,8 +26,8 @@ import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Lucene-Indexierung und Volltextsuche.
- * Langlebiger IndexWriter für hohen Durchsatz (50k+ Dokumente/Tag), NRT-Suche, Retention, Paginierung, optional Highlighting.
+ * Lucene indexing and full-text search.
+ * Long-lived IndexWriter for high throughput (50k+ docs/day), NRT search, retention, pagination, optional highlighting.
  */
 @Service
 @Slf4j
@@ -38,7 +38,7 @@ public class LuceneIndexService {
     public static final String FIELD_ATTACHMENT_UUID = "attachment_uuid";
     public static final String FIELD_CONTENT = "content";
     public static final String FIELD_INDEXED_AT = "indexed_at";
-    /** Anwender-Erstellungszeitpunkt (kann von der Indizierungszeit abweichen). */
+    /** User-provided document creation timestamp (can differ from indexing time). */
     public static final String FIELD_DOCUMENT_CREATED_AT = "document_created_at";
 
     private final LuceneConfig luceneConfig;
@@ -101,10 +101,10 @@ public class LuceneIndexService {
     }
 
     /**
-     * Fügt ein Dokument zum Index hinzu (Commit erfolgt im Scheduled-Job für Durchsatz).
+     * Adds a document to the index (commit happens periodically for throughput).
      */
     /**
-     * @param documentCreatedAt Anwender-Erstellungszeit; {@code null} → es wird der Indizierungszeitpunkt verwendet
+     * @param documentCreatedAt user-provided creation time; {@code null} → indexing time is used
      */
     public void indexDocument(String recordUuid, String attachmentUuid, String content, Instant documentCreatedAt) throws IOException {
         long now = System.currentTimeMillis();
@@ -124,8 +124,8 @@ public class LuceneIndexService {
 
         writerLock.lock();
         try {
-            // Upsert nach attachment_uuid: verhindert Duplikate bei Re-Indexing und stellt sicher,
-            // dass neue Stored-Fields (für Highlighting) wirksam werden.
+            // Upsert by attachment_uuid: prevents duplicates on re-index and ensures new stored fields
+            // (required for highlighting) become effective.
             indexWriter.updateDocument(new Term(FIELD_ATTACHMENT_UUID, attachmentUuid), doc);
         } finally {
             writerLock.unlock();
@@ -148,7 +148,7 @@ public class LuceneIndexService {
     }
 
     /**
-     * Entfernt alle Dokumente mit den angegebenen attachment_uuids aus dem Index.
+     * Removes all documents with the given attachment_uuids from the index.
      */
     public void deleteByAttachmentUuids(java.util.List<String> attachmentUuids) throws IOException {
         if (attachmentUuids == null || attachmentUuids.isEmpty()) return;
@@ -165,21 +165,21 @@ public class LuceneIndexService {
     }
 
     /**
-     * Löscht alle Dokumente, deren indexed_at vor dem angegebenen Zeitpunkt liegt (Retention).
+     * Deletes all documents whose indexed_at is before the given timestamp (retention).
      */
     public int deleteOlderThan(long cutoffEpochMs) throws IOException {
         Query rangeQuery = LongPoint.newRangeQuery(FIELD_INDEXED_AT, 0L, cutoffEpochMs);
         writerLock.lock();
         try {
             indexWriter.deleteDocuments(rangeQuery);
-            return 0; // Lucene gibt Anzahl nicht direkt zurück; wir loggen nur
+            return 0; // Lucene does not return the deleted count directly; we only log the operation.
         } finally {
             writerLock.unlock();
         }
     }
 
     /**
-     * Führt Retention aus: löscht Dokumente älter als retention-days.
+     * Runs retention: deletes documents older than retention-days.
      */
     public void runRetention() {
         int days = luceneConfig.getRetentionDays();
@@ -245,7 +245,7 @@ public class LuceneIndexService {
         }
     }
 
-    /** Einfache Suche ohne Paginierung (Legacy): gibt UUIDs zurück. */
+    /** Simple search without pagination (legacy): returns UUIDs. */
     public List<String> search(String queryString) throws Exception {
         PaginatedSearchResponse r = search(queryString, 0, 1000, false, null, null);
         return r.getHits().stream()
@@ -272,13 +272,13 @@ public class LuceneIndexService {
 
     private String highlight(IndexSearcher searcher, Query query, int docId, String storedFieldName, String analysisFieldName) {
         try {
-            // Wichtig für Wildcards/Prefix/Fuzzy (MultiTermQuery): rewrite, damit QueryScorer passende Terme sieht.
+            // Important for wildcards/prefix/fuzzy (MultiTermQuery): rewrite so QueryScorer sees concrete terms.
             Query rewritten = query.rewrite(searcher.getIndexReader());
             QueryScorer scorer = new QueryScorer(rewritten, analysisFieldName);
             Highlighter highlighter = new Highlighter(
                     new SimpleHTMLFormatter("<em>", "</em>"),
                     scorer);
-            // Wichtig: denselben Scorer fürs Fragmenting nutzen, sonst kann intern init() fehlen → NPE.
+            // Important: reuse the same scorer for fragmenting; otherwise internal init() may be skipped → NPE.
             highlighter.setTextFragmenter(new SimpleSpanFragmenter(scorer, 200));
             Document doc = searcher.storedFields().document(docId);
             String content = doc.get(storedFieldName);
@@ -286,7 +286,7 @@ public class LuceneIndexService {
                 log.warn("Highlight nicht möglich: StoredField fehlt (docId={}, storedField={})", docId, storedFieldName);
                 return null;
             }
-            // Wichtig: analysisFieldName muss zum Feldnamen in der Query passen, sonst matcht der Scorer nichts.
+            // Important: analysisFieldName must match the field name used in the parsed query.
             String[] fragments = highlighter.getBestFragments(analyzer, analysisFieldName, content, 3);
             if (fragments.length == 0) {
                 log.info("Kein Highlight-Fragment gefunden (docId={}, query={}, analysisField={})", docId, query, analysisFieldName);
@@ -294,7 +294,7 @@ public class LuceneIndexService {
             }
             return String.join(" ... ", fragments);
         } catch (Exception e) {
-            // In prod ist TRACE nicht sichtbar; WARN hilft bei der Diagnose.
+            // TRACE is usually disabled in prod; WARN helps with diagnostics.
             log.warn("Highlight fehlgeschlagen (docId={}): {}", docId, e.toString());
             return null;
         }

@@ -7,8 +7,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Optionaler S3-Client (MinIO SDK kompatibel zu S3-APIs).
- * Wird nur benötigt für Health-Checks und Test-Setups; die Indizierung nutzt die Endpoint-URL aus dem POST.
+ * Optional S3 client (MinIO SDK is compatible with S3 APIs).
+ * Only used for health checks and test setups; indexing uses the configured S3 base URL.
  */
 @Configuration
 @ConditionalOnProperty(name = "s3.url")

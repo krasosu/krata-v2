@@ -12,8 +12,8 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 
 /**
- * Orchestriert: Attachment von MinIO laden → Content-Type prüfen → ggf. Text extrahieren und in Lucene indizieren.
- * Audio, Video und Bilder werden nicht indiziert.
+ * Orchestrates: download object → check content type → extract text → index into Lucene.
+ * Audio, video and images are not indexed.
  */
 @Service
 @RequiredArgsConstructor
@@ -26,13 +26,13 @@ public class AttachmentIndexService {
     private final IndexableContentTypeService indexableContentTypeService;
 
     /**
-     * Lädt das Attachment von der angegebenen URL. Wenn der Content-Type indizierbar ist (z.B. PDF, DOCX),
-     * wird Text extrahiert und in Lucene indiziert. Audio, Video und Bilder werden übersprungen.
+     * Downloads the object from the given URL. If the content type is indexable (e.g. PDF, DOCX),
+     * text is extracted and indexed into Lucene. Audio, video and images are skipped.
      *
-     * @return Response mit indexed=true/false und ggf. skippedReason
+     * @return response with indexed=true/false and optional skippedReason
      */
     /**
-     * @param documentCreatedAt optional; Anwender-Erstellungszeit, sonst wird der Indizierungszeitpunkt verwendet
+     * @param documentCreatedAt optional; user-provided creation time, otherwise indexing time is used
      */
     public IndexAttachmentResponse indexFromUrl(String attachmentUrl, String attachmentUuid, String recordUuid, Instant documentCreatedAt) throws IOException, MinioException, InvalidKeyException, NoSuchAlgorithmException {
         long t0 = System.nanoTime();

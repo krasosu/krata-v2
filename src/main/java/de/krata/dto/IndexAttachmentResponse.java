@@ -7,7 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Antwort nach Indizierungsanfrage: ob indiziert wurde oder übersprungen (z.B. Audio/Video).
+ * Indexing response: whether the object was indexed or skipped (e.g. audio/video).
  */
 @Data
 @Builder
@@ -16,15 +16,15 @@ import lombok.NoArgsConstructor;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class IndexAttachmentResponse {
 
-    /** Record-UUID (Echo der Anfrage) */
+    /** Record UUID (echoed from request). */
     private String recordUuid;
 
-    /** Attachment-UUID (Echo der Anfrage) */
+    /** Attachment UUID (echoed from request). */
     private String attachmentUuid;
 
-    /** true wenn das Attachment in Lucene indiziert wurde */
+    /** True if the attachment was indexed into Lucene. */
     private boolean indexed;
 
-    /** Grund, wenn nicht indiziert (z.B. "content_type_not_indexable") */
+    /** Reason when not indexed (e.g. "content_type_not_indexable"). */
     private String skippedReason;
 }

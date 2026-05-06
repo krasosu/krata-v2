@@ -1,7 +1,7 @@
 package de.krata.web;
 
 /**
- * Wird geworfen, wenn die Indizierungs-Queue voll ist (503 Service Unavailable).
+ * Thrown when the indexing queue is full (503 Service Unavailable).
  */
 public class QueueFullException extends RuntimeException {
     public QueueFullException(String message) {

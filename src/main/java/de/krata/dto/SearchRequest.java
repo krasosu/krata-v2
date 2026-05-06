@@ -34,13 +34,13 @@ public class SearchRequest {
     private boolean withHighlight = false;
 
     /**
-     * Untere Grenze für den Anwender-Erstellungszeitpunkt (document_created_at), inklusiv.
+     * Lower bound for the user-provided document creation timestamp (document_created_at), inclusive.
      */
     @Schema(description = "Nur Dokumente mit Anwender-Erstellungszeit >= diesem Zeitpunkt (ISO-8601), optional")
     private Instant createdFrom;
 
     /**
-     * Obere Grenze für den Anwender-Erstellungszeitpunkt (document_created_at), inklusiv.
+     * Upper bound for the user-provided document creation timestamp (document_created_at), inclusive.
      */
     @Schema(description = "Nur Dokumente mit Anwender-Erstellungszeit <= diesem Zeitpunkt (ISO-8601), optional")
     private Instant createdTo;

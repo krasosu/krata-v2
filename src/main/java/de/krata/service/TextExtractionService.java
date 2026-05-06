@@ -10,7 +10,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Extrahiert Text aus Binärdaten (PDF, DOCX, TXT, etc.) mit Apache Tika.
+ * Extracts text from binary data (PDF, DOCX, TXT, etc.) using Apache Tika.
  */
 @Service
 @Slf4j
@@ -19,11 +19,11 @@ public class TextExtractionService {
     private final Tika tika = new Tika();
 
     /**
-     * Extrahiert lesbaren Text aus den angegebenen Bytes (z.B. aus einer PDF- oder DOCX-Datei).
+     * Extracts readable text from the given bytes (e.g. from a PDF or DOCX file).
      *
-     * @param data   Rohdaten des Attachments
-     * @param hint   optionaler Dateiname/Content-Type-Hinweis für bessere Erkennung
-     * @return extrahierter Text oder leere Zeichenkette bei Fehlern
+     * @param data raw attachment bytes
+     * @param hint optional filename/content-type hint for better detection
+     * @return extracted text, or empty string on errors
      */
     public String extractText(byte[] data, String hint) {
         if (data == null || data.length == 0) {
@@ -39,18 +39,18 @@ public class TextExtractionService {
     }
 
     /**
-     * Extrahiert Text ohne Dateinamen-Hinweis.
+     * Extracts text without a filename hint.
      */
     public String extractText(byte[] data) {
         return extractText(data, null);
     }
 
     /**
-     * Erkennt den MIME-Type der Daten (z.B. "application/pdf", "audio/mpeg").
+     * Detects the MIME type of the given data (e.g. "application/pdf", "audio/mpeg").
      *
-     * @param data  Rohdaten
-     * @param hint  optionaler Dateiname für bessere Erkennung
-     * @return MIME-Type oder null bei Fehler
+     * @param data raw bytes
+     * @param hint optional filename hint for better detection
+     * @return MIME type or null on errors
      */
     public String detectContentType(byte[] data, String hint) {
         if (data == null || data.length == 0) {
