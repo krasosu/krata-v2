@@ -25,7 +25,7 @@ docker run -d -p 9000:9000 -p 9001:9001 --name minio \
   quay.io/minio/minio server /data --console-address ":9001"
 ```
 
-Bucket `attachments` anlegen; Objekt-URL ist immer **Path-Style**: `{S3_BASE_URL}/{bucket}/{objectKey}`.
+Bucket anlegen; Objekt-URL ist immer **Path-Style**: `{S3_BASE_URL}/{bucket}/{objectKey}`.
 
 ## Konfiguration (Auszug)
 
@@ -40,6 +40,27 @@ Bucket `attachments` anlegen; Objekt-URL ist immer **Path-Style**: `{S3_BASE_URL
 - **krata.indexing.threads** – Worker-Threads für Indizierung (z.B. 8)
 - **krata.api-key** – Optional: X-API-Key erzwingen (leer = aus)
 - **resilience4j.ratelimiter.instances** – Rate Limits (index, search)
+
+### Override per Docker Environment (Mapping)
+
+Spring Boot erlaubt das Überschreiben fast aller Properties aus `application-*.yml` per Environment-Variablen (z. B. in `docker-compose.yml` unter `environment:`).
+
+| Property (YAML) | Environment Variable | Beispiel |
+|---|---|---|
+| `s3.base-url` | `S3_BASE_URL` | `http://minio:9000` |
+| `s3.access-key` | `S3_ACCESS_KEY` | `minioadmin` |
+| `s3.secret-key` | `S3_SECRET_KEY` | `minioadmin` |
+| `lucene.index-path` | `LUCENE_INDEX_PATH` | `/app/data/lucene-index` |
+| `lucene.commit-interval-sec` | `LUCENE_COMMIT_INTERVAL_SEC` | `3` |
+| `lucene.retention-days` | `LUCENE_RETENTION_DAYS` | `30` |
+| `lucene.store-content-for-highlight` | `LUCENE_STORE_CONTENT_FOR_HIGHLIGHT` | `true` |
+| `krata.indexing.queue-size` | `KRATA_INDEXING_QUEUE_SIZE` | `200000` |
+| `krata.indexing.threads` | `KRATA_INDEXING_THREADS` | `24` |
+| `krata.indexing.status-max-entries` | `KRATA_INDEXING_STATUS_MAX_ENTRIES` | `200000` |
+| `krata.indexing.poll-timeout-sec` | `KRATA_INDEXING_POLL_TIMEOUT_SEC` | `5` |
+| `krata.api-key` | `KRATA_API_KEY` | `change-me` |
+| `resilience4j.ratelimiter.instances.index.limitForPeriod` | `RESILIENCE4J_RATELIMITER_INSTANCES_INDEX_LIMITFORPERIOD` | `5000` |
+| `resilience4j.ratelimiter.instances.search.limitForPeriod` | `RESILIENCE4J_RATELIMITER_INSTANCES_SEARCH_LIMITFORPERIOD` | `1000` |
 
 ### Profile
 
