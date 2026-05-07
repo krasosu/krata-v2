@@ -116,6 +116,70 @@ Enthält **MinIO** und **Krata** (Profil `prod`).
 | DELETE | /api/attachments | **Bulk-Delete:** mehrere UUIDs im Body (max. 1000) |
 | POST | /api/search | Volltextsuche, paginiert (optional `createdFrom`/`createdTo` = **Anwender-Erstellungszeit**) |
 
+### Java-Client (JDK 21 `HttpClient`) – Bulk-Indizierung
+
+`POST /api/attachments/index/batch` nimmt bis zu 1000 Attachments pro Aufruf an und antwortet mit `202 Accepted` plus `accepted` (Anzahl angenommener Jobs) und `jobs[]` (Status `PENDING`).
+
+```java
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+
+public class KrataBulkClient {
+
+    private static final String BASE_URL = "http://localhost:8080";
+    private static final String API_KEY  = System.getenv().getOrDefault("KRATA_API_KEY", "");
+
+    public static void main(String[] args) throws Exception {
+        String body = """
+            {
+              "attachments": [
+                {
+                  "attachmentUrl": "data-input/2026-05-04/file-1.pdf",
+                  "attachmentUuid": "11111111-1111-1111-1111-111111111111",
+                  "recordUuid":     "rec-001",
+                  "documentCreatedAt": "2026-05-04T10:15:00Z"
+                },
+                {
+                  "attachmentUrl": "data-input/2026-05-04/file-2.docx",
+                  "attachmentUuid": "22222222-2222-2222-2222-222222222222",
+                  "recordUuid":     "rec-002"
+                }
+              ]
+            }
+            """;
+
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(5))
+                .version(HttpClient.Version.HTTP_2)
+                .build();
+
+        HttpRequest.Builder request = HttpRequest.newBuilder()
+                .uri(URI.create(BASE_URL + "/api/attachments/index/batch"))
+                .timeout(Duration.ofSeconds(30))
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body));
+
+        if (!API_KEY.isBlank()) {
+            request.header("X-API-Key", API_KEY);
+        }
+
+        HttpResponse<String> response = client.send(request.build(), HttpResponse.BodyHandlers.ofString());
+
+        System.out.println("Status: " + response.statusCode());
+        System.out.println("Body:   " + response.body());
+        if (response.statusCode() != 202) {
+            throw new IllegalStateException("Unexpected status: " + response.statusCode());
+        }
+    }
+}
+```
+
+`attachmentUrl` ist relativ zu `S3_BASE_URL` und wird serverseitig zu `{S3_BASE_URL}/{bucket}/{objectKey}` aufgelöst. Bei aktiviertem `krata.api-key` erwartet der Server zusätzlich den Header `X-API-Key`.
+
 ### Suche (Beispiel)
 
 **POST** `/api/search`
