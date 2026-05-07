@@ -16,9 +16,12 @@ import java.time.Instant;
 public class IndexAttachmentRequest {
 
     /**
-     * Object URL in the S3-compatible storage (path-style: {S3_BASE_URL}/{bucket}/{objectKey}).
+     * Object location: path-style reference {@code {bucket}/{objectKey}} (no scheme/host).
+     * Resolved with server-side {@code S3_BASE_URL} / {@code s3.base-url}. Example: {@code my-bucket/2026-05-04/file.txt}.
+     * For backward compatibility, a full URL {@code http(s)://{host}/{bucket}/{objectKey}} matching {@code s3.base-url} is still accepted.
      */
-    @NotBlank(message = "attachmentUrl ist erforderlich")
+    @Schema(description = "Bucket and object key, e.g. my-bucket/path/to/file.pdf (S3_BASE_URL is applied on the server). Legacy: full URL matching s3.base-url.")
+    @NotBlank(message = "attachmentUrl is required")
     private String attachmentUrl;
 
     /**

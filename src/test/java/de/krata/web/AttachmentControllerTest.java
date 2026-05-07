@@ -74,7 +74,7 @@ class AttachmentControllerTest {
         /* ACT */
         var result = mvc.perform(post("/api/attachments/index")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"attachmentUrl\":\"http://minio/attachments/x/file.pdf\",\"attachmentUuid\":\"u1\",\"recordUuid\":\"r1\"}"));
+                .content("{\"attachmentUrl\":\"attachments/x/file.pdf\",\"attachmentUuid\":\"u1\",\"recordUuid\":\"r1\"}"));
         /* ASSERT */
         result.andExpect(status().isOk())
                 .andExpect(jsonPath("$.recordUuid").value("r1"))
@@ -89,7 +89,7 @@ class AttachmentControllerTest {
         /* ACT */
         var result = mvc.perform(post("/api/attachments/index?async=true")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"attachmentUrl\":\"http://minio/attachments/x/file.pdf\",\"attachmentUuid\":\"u1\",\"recordUuid\":\"r1\"}"));
+                .content("{\"attachmentUrl\":\"attachments/x/file.pdf\",\"attachmentUuid\":\"u1\",\"recordUuid\":\"r1\"}"));
         /* ASSERT */
         result.andExpect(status().isAccepted());
     }

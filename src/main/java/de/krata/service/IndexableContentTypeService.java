@@ -37,7 +37,7 @@ public class IndexableContentTypeService {
         boolean indexable = NON_INDEXABLE_PREFIXES.stream()
                 .noneMatch(normalized::startsWith);
         if (!indexable) {
-            log.debug("Content-Type nicht indizierbar (übersprungen): {}", mimeType);
+            log.debug("Content-Type not indexable (skipped): {}", mimeType);
         }
         return indexable;
     }

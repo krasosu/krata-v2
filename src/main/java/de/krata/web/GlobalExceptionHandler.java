@@ -57,7 +57,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IOException.class)
     public ResponseEntity<ApiError> handleIOException(IOException ex, HttpServletRequest req) {
-        log.warn("IO/Indizierungsfehler: {}", ex.getMessage());
+        log.warn("IO/indexing error: {}", ex.getMessage());
         ApiError error = ApiError.builder()
                 .timestamp(Instant.now())
                 .status(HttpStatus.UNPROCESSABLE_ENTITY.value())
@@ -71,7 +71,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({ MinioException.class, InvalidKeyException.class, NoSuchAlgorithmException.class })
     public ResponseEntity<ApiError> handleS3(Exception ex, HttpServletRequest req) {
-        log.warn("S3-Storage-Fehler: {}", ex.getMessage());
+        log.warn("S3 storage error: {}", ex.getMessage());
         ApiError error = ApiError.builder()
                 .timestamp(Instant.now())
                 .status(HttpStatus.UNPROCESSABLE_ENTITY.value())
@@ -137,7 +137,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleGeneric(Exception ex, HttpServletRequest req) {
-        log.error("Unbehandelter Fehler: {}", ex.getMessage(), ex);
+        log.error("Unhandled error: {}", ex.getMessage(), ex);
         ApiError error = ApiError.builder()
                 .timestamp(Instant.now())
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())

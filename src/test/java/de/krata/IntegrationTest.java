@@ -67,6 +67,7 @@ class IntegrationTest {
     static void s3Properties(DynamicPropertyRegistry registry) {
         String url = "http://" + minio.getHost() + ":" + minio.getMappedPort(9000);
         registry.add("s3.url", () -> url);
+        registry.add("s3.base-url", () -> url);
     }
 
     @Autowired
@@ -97,8 +98,8 @@ class IntegrationTest {
     @Test
     void indexFromMinioAndSearch() {
         /* ARRANGE */
-        String objectUrl = "http://" + minio.getHost() + ":" + minio.getMappedPort(9000) + "/" + BUCKET + "/" + OBJECT_KEY;
-        var indexRequest = new IndexRequest(objectUrl, ATTACHMENT_UUID, "record-1");
+        String objectPath = BUCKET + "/" + OBJECT_KEY;
+        var indexRequest = new IndexRequest(objectPath, ATTACHMENT_UUID, "record-1");
         var searchRequest = new SearchRequest("content:integration", 0, 20, false);
 
         /* ACT */

@@ -64,7 +64,7 @@ public class LuceneIndexService {
         writerConfig.setCommitOnClose(true);
         indexWriter = new IndexWriter(directory, writerConfig);
         searcherManager = new SearcherManager(indexWriter, null);
-        log.info("Lucene-Index initialisiert (persistent, RAM-Cache): {}, storeContentForHighlight={}", path, luceneConfig.isStoreContentForHighlight());
+        log.info("Lucene index initialized (persistent, RAM buffer): {}, storeContentForHighlight={}", path, luceneConfig.isStoreContentForHighlight());
     }
 
     @Scheduled(cron = "${lucene.retention-cron:0 0 2 * * ?}")
@@ -81,7 +81,7 @@ public class LuceneIndexService {
                 searcherManager.maybeRefresh();
             }
         } catch (IOException e) {
-            log.warn("Lucene commit/refresh fehlgeschlagen: {}", e.getMessage());
+            log.warn("Lucene commit/refresh failed: {}", e.getMessage());
         } finally {
             writerLock.unlock();
         }
@@ -130,7 +130,7 @@ public class LuceneIndexService {
         } finally {
             writerLock.unlock();
         }
-        log.trace("Dokument eingereiht: record_uuid={}, attachment_uuid={}", recordUuid, attachmentUuid);
+        log.trace("Document enqueued: record_uuid={}, attachment_uuid={}", recordUuid, attachmentUuid);
     }
 
     /**
@@ -144,7 +144,7 @@ public class LuceneIndexService {
         } finally {
             writerLock.unlock();
         }
-        log.info("Dokument gelöscht: attachment_uuid={}", attachmentUuid);
+        log.info("Document deleted: attachment_uuid={}", attachmentUuid);
     }
 
     /**
@@ -161,7 +161,7 @@ public class LuceneIndexService {
         } finally {
             writerLock.unlock();
         }
-        log.info("Bulk-Delete: {} Dokumente aus Index entfernt", attachmentUuids.size());
+        log.info("Bulk delete: {} documents removed from index", attachmentUuids.size());
     }
 
     /**
@@ -187,9 +187,9 @@ public class LuceneIndexService {
         long cutoff = System.currentTimeMillis() - (days * 24L * 60 * 60 * 1000);
         try {
             deleteOlderThan(cutoff);
-            log.info("Retention ausgeführt: Dokumente älter als {} Tage entfernt", days);
+            log.info("Retention completed: documents older than {} days removed", days);
         } catch (IOException e) {
-            log.error("Retention fehlgeschlagen: {}", e.getMessage());
+            log.error("Retention failed: {}", e.getMessage());
         }
     }
 
@@ -283,19 +283,19 @@ public class LuceneIndexService {
             Document doc = searcher.storedFields().document(docId);
             String content = doc.get(storedFieldName);
             if (content == null) {
-                log.warn("Highlight nicht möglich: StoredField fehlt (docId={}, storedField={})", docId, storedFieldName);
+                log.warn("Highlight not possible: stored field missing (docId={}, storedField={})", docId, storedFieldName);
                 return null;
             }
             // Important: analysisFieldName must match the field name used in the parsed query.
             String[] fragments = highlighter.getBestFragments(analyzer, analysisFieldName, content, 3);
             if (fragments.length == 0) {
-                log.info("Kein Highlight-Fragment gefunden (docId={}, query={}, analysisField={})", docId, query, analysisFieldName);
+                log.info("No highlight fragment found (docId={}, query={}, analysisField={})", docId, query, analysisFieldName);
                 return null;
             }
             return String.join(" ... ", fragments);
         } catch (Exception e) {
             // TRACE is usually disabled in prod; WARN helps with diagnostics.
-            log.warn("Highlight fehlgeschlagen (docId={}): {}", docId, e.toString());
+            log.warn("Highlight failed (docId={}): {}", docId, e.toString());
             return null;
         }
     }

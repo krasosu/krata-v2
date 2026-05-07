@@ -50,7 +50,7 @@ public class AsyncIndexingService {
         for (int i = 0; i < workerThreads; i++) {
             executor.submit(this::worker);
         }
-        log.info("Async-Indexierung gestartet: queueSize={}, threads={}", queueSize, workerThreads);
+        log.info("Async indexing started: queueSize={}, threads={}", queueSize, workerThreads);
     }
 
     @PreDestroy
@@ -109,7 +109,7 @@ public class AsyncIndexingService {
                 Thread.currentThread().interrupt();
                 break;
             } catch (Exception e) {
-                log.error("Worker-Fehler: {}", e.getMessage());
+                log.error("Worker error: {}", e.getMessage());
             }
         }
     }
@@ -124,7 +124,7 @@ public class AsyncIndexingService {
                     .indexed(response.isIndexed())
                     .build());
         } catch (Exception e) {
-            log.warn("Indizierung fehlgeschlagen uuid={}: {}", task.attachmentUuid(), e.getMessage());
+            log.warn("Indexing failed uuid={}: {}", task.attachmentUuid(), e.getMessage());
             statusMap.put(task.attachmentUuid(), IndexJobStatus.builder()
                     .recordUuid(task.recordUuid())
                     .attachmentUuid(task.attachmentUuid())

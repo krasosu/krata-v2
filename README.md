@@ -4,7 +4,7 @@ Spring-Boot-Anwendung (JDK 21, Lombok) zur Volltext-Indizierung von Attachments 
 
 ## Ablauf
 
-1. **Indizierung:** Über REST wird eine Objekt-URL (S3-kompatibel) und eine `attachment_uuid` übergeben. Die Anwendung lädt die Datei aus dem Storage, prüft den Content-Type und indiziert **nur sinnvolle Typen** (Dokumente, Text). **Audio, Video und Bilder** werden nicht indiziert. Indizierung kann **synchron**, **asynchron** (In-Memory-Queue) oder als **Batch** erfolgen.
+1. **Indizierung:** Über REST wird eine Objekt-Referenz `{bucket}/{objectKey}` (ohne Host; Basis ist serverseitig `S3_BASE_URL`) und eine `attachment_uuid` übergeben. Die Anwendung lädt die Datei aus dem Storage, prüft den Content-Type und indiziert **nur sinnvolle Typen** (Dokumente, Text). **Audio, Video und Bilder** werden nicht indiziert. Indizierung kann **synchron**, **asynchron** (In-Memory-Queue) oder als **Batch** erfolgen. Optional weiterhin eine vollständige `http(s)`-Objekt-URL möglich, wenn sie zum konfigurierten Endpoint passt.
 2. **Suche:** Über REST wird eine Lucene-Query übergeben; Antwort ist **paginiert** (from, size, total) und kann **Snippets** (Highlighting) enthalten.
 3. **Retention:** Dokumente älter als konfigurierte Tage (z.B. 30) werden automatisch aus dem Index entfernt.
 
@@ -25,11 +25,11 @@ docker run -d -p 9000:9000 -p 9001:9001 --name minio \
   quay.io/minio/minio server /data --console-address ":9001"
 ```
 
-Bucket anlegen; Objekt-URL ist immer **Path-Style**: `{S3_BASE_URL}/{bucket}/{objectKey}`.
+Bucket anlegen; im API-Body wird **`attachmentUrl` als `{bucket}/{objectKey}`** übergeben (z. B. `data-input/2026-05-04/file.txt`). `S3_BASE_URL` setzt nur den Storage-Endpoint auf dem Server; die vollständige URL im Client entfällt.
 
 ## Konfiguration (Auszug)
 
-- **s3.base-url** – erlaubter Endpoint für Objekt-URLs (aus `S3_BASE_URL`)
+- **s3.base-url** – S3-Endpoint (aus `S3_BASE_URL`), wird mit `{bucket}/{objectKey}` aus `attachmentUrl` zusammengesetzt
 - **s3.access-key / s3.secret-key** – Credentials (aus `S3_ACCESS_KEY` / `S3_SECRET_KEY`)
 - **lucene.index-path** – Persistenter Index-Pfad
 - **lucene.cache.*** – RAM-Cache (max-merge-size-mb, max-cached-mb)

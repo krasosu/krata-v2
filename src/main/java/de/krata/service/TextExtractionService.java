@@ -33,7 +33,7 @@ public class TextExtractionService {
             String text = tika.parseToString(new ByteArrayInputStream(data));
             return text != null ? text : "";
         } catch (TikaException | IOException e) {
-            log.warn("Textextraktion fehlgeschlagen (hint={}): {}", hint, e.getMessage());
+            log.warn("Text extraction failed (hint={}): {}", hint, e.getMessage());
             return "";
         }
     }
@@ -59,7 +59,7 @@ public class TextExtractionService {
         try {
             return tika.detect(new ByteArrayInputStream(data), hint);
         } catch (IOException e) {
-            log.warn("Content-Type-Erkennung fehlgeschlagen (hint={}): {}", hint, e.getMessage());
+            log.warn("Content-type detection failed (hint={}): {}", hint, e.getMessage());
             return null;
         }
     }
