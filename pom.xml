@@ -19,6 +19,14 @@
 
     <properties>
         <java.version>21</java.version>
+        <jacoco.version>0.8.12</jacoco.version>
+        <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <sonar.coverage.exclusions>
+            **/KrataApplication.java,
+            **/dto/**,
+            **/config/OpenApiConfig.java,
+            **/web/ApiError.java
+        </sonar.coverage.exclusions>
     </properties>
 
     <dependencies>
@@ -127,6 +135,34 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <configuration>
+                    <excludes>
+                        <exclude>de/krata/KrataApplication.class</exclude>
+                        <exclude>de/krata/dto/**</exclude>
+                        <exclude>de/krata/config/OpenApiConfig.class</exclude>
+                        <exclude>de/krata/web/ApiError*</exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

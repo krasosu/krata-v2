@@ -93,4 +93,108 @@ class AttachmentControllerTest {
         /* ASSERT */
         result.andExpect(status().isAccepted());
     }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("async index: 503 with QUEUE_FULL when the queue rejects a task")
+    void indexAsyncReturns503WhenQueueFull() throws Exception {
+        /* ARRANGE */
+        when(asyncIndexingService.submit(anyString(), anyString(), anyString(), any())).thenReturn(false);
+
+        /* ACT */
+        var result = mvc.perform(post("/api/attachments/index?async=true")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"attachmentUrl\":\"attachments/x/file.pdf\",\"attachmentUuid\":\"u1\",\"recordUuid\":\"r1\"}"));
+
+        /* ASSERT */
+        result.andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("QUEUE_FULL"));
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("batch index: 202 with one PENDING job per accepted attachment")
+    void indexBatchReturnsAcceptedWithJobs() throws Exception {
+        /* ARRANGE */
+        when(asyncIndexingService.submitBatch(any())).thenReturn(2);
+        String body = "{\"attachments\":[" +
+                "{\"attachmentUrl\":\"b/k1\",\"attachmentUuid\":\"u1\",\"recordUuid\":\"r1\"}," +
+                "{\"attachmentUrl\":\"b/k2\",\"attachmentUuid\":\"u2\",\"recordUuid\":\"r2\"}" +
+                "]}";
+
+        /* ACT */
+        var result = mvc.perform(post("/api/attachments/index/batch")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body));
+
+        /* ASSERT */
+        result.andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.accepted").value(2))
+                .andExpect(jsonPath("$.jobs", org.hamcrest.Matchers.hasSize(2)));
+    }
+
+    @Test
+    void getIndexStatusReturns200WhenKnown() throws Exception {
+        /* ARRANGE */
+        when(asyncIndexingService.getStatus("u1")).thenReturn(java.util.Optional.of(
+                IndexJobStatus.builder()
+                        .attachmentUuid("u1")
+                        .recordUuid("r1")
+                        .status(IndexJobStatus.Status.INDEXED)
+                        .indexed(true)
+                        .build()));
+
+        /* ACT */
+        var result = mvc.perform(get("/api/attachments/index/status/u1"));
+
+        /* ASSERT */
+        result.andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("INDEXED"));
+    }
+
+    @Test
+    void getIndexStatusReturns404WhenUnknown() throws Exception {
+        /* ARRANGE */
+        when(asyncIndexingService.getStatus("missing")).thenReturn(java.util.Optional.empty());
+
+        /* ACT */
+        var result = mvc.perform(get("/api/attachments/index/status/missing"));
+
+        /* ASSERT */
+        result.andExpect(status().isNotFound());
+    }
+
+    @Test
+    void bulkDeleteReturns204() throws Exception {
+        /* ACT */
+        var result = mvc.perform(delete("/api/attachments")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"attachmentUuids\":[\"u1\",\"u2\"]}"));
+
+        /* ASSERT */
+        result.andExpect(status().isNoContent());
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("bulk delete: 400 when attachmentUuids list is empty (validation)")
+    void bulkDeleteReturns400WhenListEmpty() throws Exception {
+        /* ACT */
+        var result = mvc.perform(delete("/api/attachments")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"attachmentUuids\":[]}"));
+
+        /* ASSERT */
+        result.andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @org.junit.jupiter.api.DisplayName("search: 400 with VALIDATION_ERROR when query is blank")
+    void searchValidationFailsForBlankQuery() throws Exception {
+        /* ACT */
+        var result = mvc.perform(post("/api/search")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"query\":\"\",\"from\":0,\"size\":20}"));
+
+        /* ASSERT */
+        result.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
 }
